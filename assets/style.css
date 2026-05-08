@@ -1,0 +1,195 @@
+/* IPL Analytics Dashboard — Premium Dark Theme */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --bg-dark: #0b1020;
+    --bg-card: #111827;
+    --accent: #ffb703;
+    --sidebar-w: 220px;
+}
+
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 0;
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-dark);
+    color: white;
+    overflow-x: hidden;
+}
+
+/* ─── App Container ───────────────────────────────────────── */
+.app-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ─── Sidebar ─────────────────────────────────────────────── */
+.sidebar {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+    background: linear-gradient(180deg, #0d1225 0%, #0b1020 100%);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    position: fixed; left: 0; top: 0; z-index: 100;
+    overflow-y: auto;
+}
+
+.sidebar-logo-icon {
+    font-size: 28px;
+    background: linear-gradient(135deg, var(--accent), #ff6d00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.sidebar-link {
+    color: rgba(255,255,255,0.6) !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    margin-bottom: 2px;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+.sidebar-link:hover {
+    color: white !important;
+    background: rgba(255,183,3,0.08) !important;
+}
+.sidebar-link.active {
+    color: var(--accent) !important;
+    background: rgba(255,183,3,0.12) !important;
+    font-weight: 600;
+}
+
+/* ─── Main Content ────────────────────────────────────────── */
+.main-content {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    padding: 24px 28px;
+    min-height: 100vh;
+    background: var(--bg-dark);
+}
+
+/* ─── Cards ───────────────────────────────────────────────── */
+.glass-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.kpi-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-align: center;
+    min-width: 130px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255,183,3,0.1);
+}
+.kpi-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
+}
+.kpi-value {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+}
+
+/* ─── Page Headers ────────────────────────────────────────── */
+.page-header {
+    font-size: 22px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), #ff6d00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* ─── Grids ───────────────────────────────────────────────── */
+.kpi-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.chart-row {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.chart-row.two-col { grid-template-columns: 1fr 1fr; }
+.chart-row.three-col { grid-template-columns: 1fr 1fr 1fr; }
+.chart-row.full-width { grid-template-columns: 1fr; }
+
+/* ─── Dropdowns ───────────────────────────────────────────── */
+.Select-control,
+.dash-dropdown .Select-control {
+    background: var(--bg-card) !important;
+    border-color: rgba(255,255,255,0.1) !important;
+    color: white !important;
+}
+.Select-menu-outer {
+    background: var(--bg-card) !important;
+}
+.Select-option {
+    background: var(--bg-card) !important;
+    color: white !important;
+}
+.Select-option.is-focused {
+    background: rgba(255,183,3,0.15) !important;
+}
+.Select-value-label {
+    color: white !important;
+}
+
+/* ─── Range Slider ────────────────────────────────────────── */
+.rc-slider-track { background: var(--accent) !important; }
+.rc-slider-handle { border-color: var(--accent) !important; }
+.rc-slider-dot-active { border-color: var(--accent) !important; }
+
+/* ─── Scorecard Table ─────────────────────────────────────── */
+.scorecard-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.scorecard-table th {
+    padding: 8px 12px;
+    text-align: left;
+    color: var(--accent);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+.scorecard-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.85);
+}
+.scorecard-table tr:hover td {
+    background: rgba(255,183,3,0.04);
+}
+
+/* ─── Responsive ──────────────────────────────────────────── */
+@media (max-width: 992px) {
+    .sidebar { display: none; }
+    .main-content { margin-left: 0; padding: 16px; }
+    .chart-row.two-col, .chart-row.three-col { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+    .kpi-card { min-width: 100px; padding: 10px; }
+    .kpi-value { font-size: 16px; }
+    .page-header { font-size: 18px; }
+}
