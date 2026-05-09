@@ -1,4 +1,4 @@
-# IPL Analytics Dashboard — Complete Implementation
+# IPL Analytics Dashboar
 
 A production-ready IPL analytics platform with 13+ analytical modules, machine learning predictions, and interactive visualizations. Built with Dash, Plotly, and Flask.
 
@@ -263,7 +263,7 @@ Built for comprehensive IPL data analysis and visualization
 
 ## 🙏 Acknowledgments
 
-- IPL dataset from Kaggle and ESPN Statsguru
+- IPL dataset from Kaggle
 - Plotly for interactive visualizations
 - Dash for web framework
 - Bootstrap for UI components
@@ -271,9 +271,8 @@ Built for comprehensive IPL data analysis and visualization
 ## 📞 Support
 
 For issues, questions, or suggestions:
-- Open GitHub Issue
-- Email: support@ipl-analytics.com
-- Documentation: https://ipl-analytics.readthedocs.io
+- Email: kirankumarp405@gmail.com
+- Website: https://ipl-analytics.readthedocs.io](https://ipl-match-data-analytics.vercel.app/
 
 ---
 
