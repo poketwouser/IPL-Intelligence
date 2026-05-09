@@ -1,4 +1,4 @@
-"""Season Overview Page — ported from P06 notebook."""
+"""Season Overview Page - ported from P06 notebook."""
 import dash
 from dash import html, dcc
 import plotly.graph_objects as go
@@ -119,15 +119,17 @@ def compute_layout():
 
     pivot_runs = heat.pivot(index="Season", columns="Over", values="RPO").sort_index().fillna(0)
     pivot_wk = heat2.pivot(index="Season", columns="Over", values="WPO").sort_index().fillna(0)
+    pivot_runs.columns = [f"{i+1}" for i in pivot_runs.columns]
+    pivot_wk.columns = [f"{i+1}" for i in pivot_wk.columns]
 
     fig_bat_heat = px.imshow(pivot_runs, color_continuous_scale="YlOrRd",
                              labels=dict(x="Over", y="Season", color="Avg Runs/Over"), aspect="auto",
-                             title="Batting Intensity — Avg Runs per Over")
+                             title="Batting Intensity - Avg Runs per Over")
     apply_dark_theme(fig_bat_heat, height=360)
 
     fig_bowl_heat = px.imshow(pivot_wk, color_continuous_scale="PuBuGn",
                               labels=dict(x="Over", y="Season", color="Avg Wkts/Over"), aspect="auto",
-                              title="Bowling Intensity — Avg Wickets per Over")
+                              title="Bowling Intensity - Avg Wickets per Over")
     apply_dark_theme(fig_bowl_heat, height=360)
 
     # ─── Chart 4/5: Top Batters & Bowlers ─────────────────────────────────────
@@ -141,7 +143,7 @@ def compute_layout():
     top_bat["Color"] = top_bat["Team"].map(team_color).fillna("#888")
 
     fig_top_bat = go.Figure(go.Bar(
-        x=top_bat["Batsman_Runs"][::-1], y=(top_bat["Batter"] + " — " + top_bat["Team"].map(team_abbr))[::-1],
+        x=top_bat["Batsman_Runs"][::-1], y=(top_bat["Batter"] + " - " + top_bat["Team"].map(team_abbr))[::-1],
         orientation="h", marker_color=top_bat["Color"][::-1],
         text=top_bat["Batsman_Runs"][::-1], textposition="outside"))
     apply_dark_theme(fig_top_bat, title="Top 10 Run Scorers", height=360, xaxis=dict(showgrid=False))
@@ -151,7 +153,7 @@ def compute_layout():
     top_bowl["Color"] = top_bowl["Team"].map(team_color).fillna("#888")
 
     fig_top_bowl = go.Figure(go.Bar(
-        x=top_bowl["Wickets"][::-1], y=(top_bowl["Bowler"] + " — " + top_bowl["Team"].map(team_abbr))[::-1],
+        x=top_bowl["Wickets"][::-1], y=(top_bowl["Bowler"] + " - " + top_bowl["Team"].map(team_abbr))[::-1],
         orientation="h", marker_color=top_bowl["Color"][::-1],
         text=top_bowl["Wickets"][::-1], textposition="outside"))
     apply_dark_theme(fig_top_bowl, title="Top 10 Wicket Takers", height=360, xaxis=dict(showgrid=False))
@@ -163,7 +165,7 @@ def compute_layout():
         potm_df["Team"] = potm_df["Player"].map(batter_team_map).fillna("N/A")
         potm_df["Color"] = potm_df["Team"].map(team_color).fillna("#888")
         fig_potm = go.Figure(go.Bar(
-            x=potm_df["Awards"][::-1], y=(potm_df["Player"] + " — " + potm_df["Team"].map(team_abbr))[::-1],
+            x=potm_df["Awards"][::-1], y=(potm_df["Player"] + " - " + potm_df["Team"].map(team_abbr))[::-1],
             orientation="h", marker_color=potm_df["Color"][::-1],
             text=potm_df["Awards"][::-1], textposition="outside"))
         apply_dark_theme(fig_potm, title="Most Player of the Match Awards", height=360, xaxis=dict(showgrid=False))
@@ -234,7 +236,7 @@ def compute_layout():
                      showlegend=False)
 
     return html.Div([
-        html.H2("🏟️ IPL — Overall Overview (2008–2024)", className="page-header"),
+        html.H2("🏟️ IPL - Overall Overview (2008–2024)", className="page-header"),
         kpi_row,
         html.Div([dcc.Graph(figure=fig_rw, config={"displayModeBar": False})], className="glass-card mb-3"),
         html.Div([
