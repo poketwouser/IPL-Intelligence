@@ -1,4 +1,4 @@
-# IPL Analytics Dashboar
+# IPL Analytics Dashboard
 
 A production-ready IPL analytics platform with 13+ analytical modules, machine learning predictions, and interactive visualizations. Built with Dash, Plotly, and Flask.
 
