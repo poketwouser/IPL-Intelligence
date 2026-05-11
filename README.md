@@ -259,7 +259,7 @@ MIT License - See LICENSE file for details
 
 ## 👤 Author
 
-Built for comprehensive IPL data analysis and visualization
+Kiran Kumar P - DA24B008
 
 ## 🙏 Acknowledgments
 
@@ -272,7 +272,7 @@ Built for comprehensive IPL data analysis and visualization
 
 For issues, questions, or suggestions:
 - Email: kirankumarp405@gmail.com
-- Website: https://ipl-analytics.readthedocs.io](https://ipl-match-data-analytics.vercel.app/
+- Website: https://ipl-match-data-analytics.vercel.app/
 
 ---
 
