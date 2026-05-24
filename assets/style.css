@@ -2041,3 +2041,516 @@ body.cursor-hover #cursor-trail { width: 48px; height: 48px; border-color: rgba(
 
 /* ── Plotly chart fix: ensure charts expand inside cards ─── */
 .js-plotly-plot .plotly, .js-plotly-plot .plotly svg { overflow: visible !important; }
+
+
+/* =========================================================
+   DESIGN SYSTEM v5.0 — CINEMATIC EXTENSIONS
+   Stadium lights · Holographic foil · Scroll storytelling
+   ========================================================= */
+
+/* ── STADIUM GLOW EFFECTS ───────────────────────────────── */
+@keyframes stadiumPulse {
+  0%, 100% { opacity: 0.4; filter: blur(80px); }
+  50%      { opacity: 0.7; filter: blur(100px); }
+}
+
+@keyframes stadiumSweep {
+  0%   { transform: translateX(-100%) rotate(-5deg); }
+  100% { transform: translateX(200%) rotate(-5deg); }
+}
+
+.stadium-glow {
+  position: absolute;
+  width: 300px; height: 600px;
+  background: linear-gradient(180deg, rgba(245,166,35,0.15), transparent);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: stadiumPulse 4s ease-in-out infinite;
+}
+
+.stadium-sweep {
+  position: absolute;
+  top: 0; left: 0;
+  width: 200px; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+  animation: stadiumSweep 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── HOLOGRAPHIC FOIL ANIMATION ─────────────────────────── */
+@property --foil-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes foilShimmer {
+  0%   { --foil-angle: 0deg; }
+  100% { --foil-angle: 360deg; }
+}
+
+.player-card-foil {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.4s var(--ease-out);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.player-card:hover .player-card-foil {
+  opacity: 1;
+  background: linear-gradient(
+    var(--foil-angle),
+    transparent 0%,
+    rgba(245,166,35,0.08) 20%,
+    rgba(0,212,255,0.12) 35%,
+    rgba(124,58,237,0.08) 50%,
+    rgba(0,255,135,0.1) 65%,
+    rgba(245,166,35,0.06) 80%,
+    transparent 100%
+  );
+  animation: foilShimmer 3s linear infinite;
+  mix-blend-mode: overlay;
+}
+
+/* ── ENHANCED GLASS CARD ────────────────────────────────── */
+.glass-card {
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+.glass-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* ── PAGE TRANSITION SYSTEM ─────────────────────────────── */
+.page-transitioning .page-content {
+  animation: pageOut 0.3s var(--ease-in) forwards;
+}
+
+.page-entered .page-content {
+  animation: pageIn 0.5s var(--ease-expo) forwards;
+}
+
+@keyframes pageOut {
+  to { opacity: 0; transform: translateY(-12px); filter: blur(4px); }
+}
+
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(20px); filter: blur(4px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+/* ── SCROLL STORYTELLING ────────────────────────────────── */
+.story-section {
+  position: relative;
+  padding: var(--s9) 0;
+  overflow: hidden;
+}
+
+.story-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 1px; height: 100%;
+  background: linear-gradient(180deg, transparent, var(--glass-border), transparent);
+}
+
+/* ── SEASON TIMELINE ────────────────────────────────────── */
+.season-timeline {
+  position: relative;
+  padding: var(--s7) 0;
+}
+
+.season-timeline::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 28px;
+  width: 2px; height: 100%;
+  background: linear-gradient(180deg, var(--gold), var(--cyan), var(--purple), transparent);
+  border-radius: 2px;
+}
+
+.timeline-item {
+  position: relative;
+  padding-left: 64px;
+  margin-bottom: var(--s6);
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
+}
+
+.timeline-item.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.timeline-dot {
+  position: absolute;
+  left: 20px; top: 8px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 3px solid var(--void);
+  box-shadow: 0 0 12px var(--gold-4);
+  z-index: 1;
+}
+
+.timeline-year {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+
+.timeline-content {
+  background: var(--glass-0);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r3);
+  padding: var(--s4) var(--s5);
+  transition: border-color 0.3s, background 0.3s;
+}
+
+.timeline-content:hover {
+  border-color: var(--gold-2);
+  background: var(--glass-1);
+}
+
+.timeline-champion {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--t1);
+}
+
+.timeline-meta {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--t4);
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+
+/* ── IMPACT PLAYER CARD ─────────────────────────────────── */
+.impact-card {
+  position: relative;
+  border-radius: var(--r3);
+  padding: var(--s5);
+  background: linear-gradient(135deg, rgba(0,255,135,0.04), rgba(0,212,255,0.04));
+  border: 1px solid rgba(0,255,135,0.15);
+  overflow: hidden;
+}
+
+.impact-card::before {
+  content: '⚡';
+  position: absolute;
+  top: 12px; right: 16px;
+  font-size: 1.4rem;
+  opacity: 0.3;
+}
+
+.impact-score {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--green), var(--cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
+}
+
+.impact-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  color: var(--green);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* ── CINEMATIC STAT COUNTER ─────────────────────────────── */
+.cinema-counter {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.cinema-counter-value {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 900;
+  color: var(--t1);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.cinema-counter-suffix {
+  font-family: var(--font-display);
+  font-size: 0.8em;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+/* ── RADAR CHART CONTAINER ──────────────────────────────── */
+.radar-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+/* ── PERFORMANCE METER ──────────────────────────────────── */
+.perf-meter {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 8px 0;
+}
+
+.perf-meter-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--t4);
+  letter-spacing: 0.08em;
+  width: 60px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.perf-meter-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--glass-2);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.perf-meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-hi));
+  transition: width 1.2s var(--ease-expo);
+  position: relative;
+}
+
+.perf-meter-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 8px;
+  background: var(--gold-hi);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--gold-4);
+}
+
+.perf-meter-value {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--t2);
+  width: 40px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── ENHANCED HOME HERO — Gradient text shadow ──────────── */
+.home-hero-title .line-2 {
+  text-shadow: 0 0 60px rgba(245,166,35,0.2);
+}
+
+/* ── FLOATING NAV GLOW ──────────────────────────────────── */
+.navbar::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 20%; right: 20%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245,166,35,0.3), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.navbar:hover::before { opacity: 1; }
+
+/* ── HERO GRADIENT BORDER ANIMATION ─────────────────────── */
+@property --gradient-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes gradientRotate {
+  to { --gradient-angle: 360deg; }
+}
+
+.gradient-border {
+  position: relative;
+  border: none !important;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--gradient-angle),
+    var(--gold), var(--cyan), var(--purple), var(--green), var(--gold)
+  );
+  z-index: -1;
+  animation: gradientRotate 6s linear infinite;
+  opacity: 0.5;
+}
+
+.gradient-border::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: var(--surface);
+  z-index: -1;
+}
+
+/* ── ENHANCED FEATURED CARDS ────────────────────────────── */
+.featured-card {
+  transition: transform 0.4s var(--ease-spring), border-color 0.3s, box-shadow 0.4s;
+}
+
+.featured-card:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(245,166,35,0.08);
+}
+
+/* ── SEASON REWIND SECTION ──────────────────────────────── */
+.rewind-section {
+  position: relative;
+  padding: var(--s9) 0;
+}
+
+.rewind-header {
+  text-align: center;
+  margin-bottom: var(--s8);
+}
+
+.rewind-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 900;
+  color: var(--t1);
+  margin-bottom: var(--s3);
+}
+
+.rewind-subtitle {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: var(--t3);
+}
+
+/* ── PLAYER CARD GRID — ENHANCED CAROUSEL ───────────────── */
+.player-card-grid {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.player-card-grid > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* ── ENHANCED STAT CARD — GLOW ON HOVER ─────────────────── */
+.stat-card:hover {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 20px color-mix(in srgb, var(--card-color) 15%, transparent);
+}
+
+/* ── SECTION DIVIDER ────────────────────────────────────── */
+.section-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
+  margin: var(--s7) 0;
+}
+
+/* ── DASH DROPDOWN MODERN OVERRIDE ──────────────────────── */
+.dash-dropdown .Select-control {
+  background: rgba(6,13,28,0.8) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 12px !important;
+  min-height: 42px !important;
+}
+
+.dash-dropdown .Select-menu-outer {
+  background: rgba(6,13,28,0.98) !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8) !important;
+  backdrop-filter: blur(30px) !important;
+  z-index: 1000 !important;
+}
+
+/* ── ANIMATED REVEAL VARIANTS ───────────────────────────── */
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+}
+.reveal-left.visible { opacity: 1; transform: translateX(0); }
+
+.reveal-right {
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+}
+.reveal-right.visible { opacity: 1; transform: translateX(0); }
+
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+}
+.reveal-scale.visible { opacity: 1; transform: scale(1); }
+
+/* ── ENHANCED RESPONSIVE ────────────────────────────────── */
+@media (max-width: 1200px) {
+  .home-hero { padding: var(--s9) 0 var(--s8); }
+  .home-hero-stats { gap: var(--s5); }
+}
+
+@media (max-width: 768px) {
+  .season-banner { flex-direction: column; align-items: flex-start; gap: var(--s4); }
+  .season-banner-divider { width: 100%; height: 1px; }
+  .season-timeline::before { left: 16px; }
+  .timeline-item { padding-left: 48px; }
+  .timeline-dot { left: 8px; }
+  .rivalry-side { text-align: center !important; align-items: center !important; }
+}
+
+@media (max-width: 480px) {
+  .home-hero-title { font-size: clamp(2rem, 12vw, 3.5rem); }
+  .home-hero-stats { flex-direction: column; gap: var(--s4); }
+  .hero-stat { flex-direction: row; align-items: baseline; gap: var(--s3); }
+  .home-hero-sub { font-size: 0.9rem; }
+}
+
+/* ── PREFERS REDUCED MOTION ─────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .home-hero-orb { animation: none !important; }
+  .player-card { transition: none !important; }
+  .reveal { transition: none !important; opacity: 1 !important; transform: none !important; }
+}

@@ -283,7 +283,7 @@ def render_scorecard(match_id):
             name=team_abbr(bat_team), mode="lines+markers",
             line=dict(color=clr, width=2.5, shape="spline"),
             marker=dict(size=6, color=clr),
-            fill="tozeroy", fillcolor=f"{clr}18",
+            fill="tozeroy", fillcolor=f"rgba({int(clr[1:3],16)},{int(clr[3:5],16)},{int(clr[5:7],16)},0.09)" if clr.startswith("#") and len(clr)==7 else "rgba(245,166,35,0.09)",
             hovertemplate="Over %{x}<br>Cumulative: %{y}<extra></extra>",
         ))
 

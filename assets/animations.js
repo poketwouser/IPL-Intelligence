@@ -1,6 +1,7 @@
 /**
- * IPL Intelligence — Animation Engine v4.0
+ * IPL Intelligence — Animation Engine v5.0
  * GSAP + Lenis smooth scroll. Cinema-grade interactions.
+ * Page transitions, scroll storytelling, enhanced reveals.
  */
 
 (function () {
@@ -17,28 +18,42 @@
     } else if (attempts < 80) {
       setTimeout(() => waitForLibs(cb, attempts + 1), 100);
     } else {
-      // Boot without libs
       bootCSSFallback();
     }
   }
 
   /* ════════════════════════════════════════════════════════
-     LOADER
+     LOADER — Cinematic intro sequence
   ════════════════════════════════════════════════════════ */
   function initLoader() {
     const loader = document.getElementById("page-loader");
     if (!loader) return;
 
-    if (typeof gsap !== "undefined") {
-      setTimeout(() => {
+    // Dismiss the loader - guaranteed to work
+    const dismiss = () => {
+      if (loader.classList.contains("done")) return;
+      if (typeof gsap !== "undefined") {
         gsap.to(loader, {
-          opacity: 0, scale: 1.015, duration: 0.55, ease: "power2.in",
-          onComplete: () => loader.classList.add("done"),
+          opacity: 0, scale: 1.02, duration: 0.6, ease: "power2.inOut",
+          onComplete: () => {
+            loader.classList.add("done");
+            loader.style.display = "none";
+            document.body.classList.add("page-entered");
+          },
         });
-      }, 2000);
-    } else {
-      setTimeout(() => loader.classList.add("done"), 2000);
-    }
+      } else {
+        loader.style.transition = "opacity 0.5s ease";
+        loader.style.opacity = "0";
+        setTimeout(() => {
+          loader.classList.add("done");
+          loader.style.display = "none";
+          document.body.classList.add("page-entered");
+        }, 500);
+      }
+    };
+
+    // Auto dismiss
+    setTimeout(dismiss, 1000); // reduced timeout for snappier entry
   }
 
   /* ════════════════════════════════════════════════════════
@@ -147,7 +162,7 @@
   }
 
   /* ════════════════════════════════════════════════════════
-     SCROLL REVEALS — GSAP
+     SCROLL REVEALS — GSAP (Enhanced v5)
   ════════════════════════════════════════════════════════ */
   function initScrollReveal() {
     if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
@@ -158,30 +173,79 @@
     gsap.registerPlugin(ScrollTrigger);
 
     // Standard reveal
-    gsap.utils.toArray(".reveal").forEach(el => {
-      if (el.dataset.gsapDone) return;
+    gsap.utils.toArray(".reveal:not([data-gsap-done])").forEach(el => {
       el.dataset.gsapDone = "1";
       gsap.fromTo(el,
         { opacity: 0, y: 36 },
         {
           opacity: 1, y: 0,
           duration: 0.8, ease: "power3.out",
-          scrollTrigger: { trigger: el, start: "top 90%", toggleActions: "play none none reverse" }
+          scrollTrigger: { trigger: el, start: "top 92%", toggleActions: "play none none reverse" }
+        }
+      );
+    });
+
+    // Directional reveals
+    gsap.utils.toArray(".reveal-left:not([data-gsap-done])").forEach(el => {
+      el.dataset.gsapDone = "1";
+      gsap.fromTo(el,
+        { opacity: 0, x: -40 },
+        {
+          opacity: 1, x: 0,
+          duration: 0.8, ease: "power3.out",
+          scrollTrigger: { trigger: el, start: "top 92%" }
+        }
+      );
+    });
+
+    gsap.utils.toArray(".reveal-right:not([data-gsap-done])").forEach(el => {
+      el.dataset.gsapDone = "1";
+      gsap.fromTo(el,
+        { opacity: 0, x: 40 },
+        {
+          opacity: 1, x: 0,
+          duration: 0.8, ease: "power3.out",
+          scrollTrigger: { trigger: el, start: "top 92%" }
+        }
+      );
+    });
+
+    gsap.utils.toArray(".reveal-scale:not([data-gsap-done])").forEach(el => {
+      el.dataset.gsapDone = "1";
+      gsap.fromTo(el,
+        { opacity: 0, scale: 0.9 },
+        {
+          opacity: 1, scale: 1,
+          duration: 0.7, ease: "power2.out",
+          scrollTrigger: { trigger: el, start: "top 92%" }
         }
       );
     });
 
     // Stagger grids
-    gsap.utils.toArray(".stagger-in").forEach(container => {
-      if (container.dataset.gsapDone) return;
+    gsap.utils.toArray(".stagger-in:not([data-gsap-done])").forEach(container => {
       container.dataset.gsapDone = "1";
       gsap.fromTo(Array.from(container.children),
-        { opacity: 0, y: 20 },
+        { opacity: 0, y: 24 },
         {
           opacity: 1, y: 0,
-          stagger: 0.07,
+          stagger: 0.08,
           duration: 0.6, ease: "power2.out",
-          scrollTrigger: { trigger: container, start: "top 90%" }
+          scrollTrigger: { trigger: container, start: "top 92%" }
+        }
+      );
+    });
+
+    // Timeline items
+    gsap.utils.toArray(".timeline-item:not([data-gsap-done])").forEach((el, i) => {
+      el.dataset.gsapDone = "1";
+      gsap.fromTo(el,
+        { opacity: 0, x: -30 },
+        {
+          opacity: 1, x: 0,
+          duration: 0.6, ease: "power2.out",
+          delay: i * 0.05,
+          scrollTrigger: { trigger: el, start: "top 94%" }
         }
       );
     });
@@ -193,14 +257,14 @@
         if (e.isIntersecting) { e.target.classList.add("visible"); io.unobserve(e.target); }
       });
     }, { threshold: 0.1 });
-    document.querySelectorAll(".reveal, .stagger-in").forEach(el => io.observe(el));
+    document.querySelectorAll(".reveal, .reveal-left, .reveal-right, .reveal-scale, .stagger-in, .timeline-item").forEach(el => io.observe(el));
   }
 
   /* ════════════════════════════════════════════════════════
      ANIMATED COUNTERS
   ════════════════════════════════════════════════════════ */
   function initCounters() {
-    const counters = document.querySelectorAll("[data-counter]");
+    const counters = document.querySelectorAll("[data-counter]:not([data-counter-init])");
     if (!counters.length) return;
 
     function animateCounter(el) {
@@ -232,13 +296,17 @@
 
     if (typeof ScrollTrigger !== "undefined") {
       counters.forEach(el => {
-        ScrollTrigger.create({ trigger: el, start: "top 90%", onEnter: () => animateCounter(el) });
+        el.dataset.counterInit = "1";
+        ScrollTrigger.create({ trigger: el, start: "top 92%", onEnter: () => animateCounter(el) });
       });
     } else {
       const io = new IntersectionObserver((entries) => {
         entries.forEach(e => { if (e.isIntersecting) { animateCounter(e.target); io.unobserve(e.target); } });
       }, { threshold: 0.3 });
-      counters.forEach(el => io.observe(el));
+      counters.forEach(el => {
+        el.dataset.counterInit = "1";
+        io.observe(el);
+      });
     }
   }
 
@@ -251,18 +319,18 @@
 
       card.addEventListener("mousemove", e => {
         const r  = card.getBoundingClientRect();
-        const rx = ((e.clientY - r.top  - r.height / 2) / (r.height / 2)) * -10;
-        const ry = ((e.clientX - r.left - r.width  / 2) / (r.width  / 2)) *  10;
+        const rx = ((e.clientY - r.top  - r.height / 2) / (r.height / 2)) * -12;
+        const ry = ((e.clientX - r.left - r.width  / 2) / (r.width  / 2)) *  12;
         if (typeof gsap !== "undefined") {
-          gsap.to(card, { rotateX: rx, rotateY: ry, scale: 1.05, duration: 0.45, ease: "power2.out", transformPerspective: 800 });
+          gsap.to(card, { rotateX: rx, rotateY: ry, scale: 1.06, duration: 0.4, ease: "power2.out", transformPerspective: 800 });
         } else {
-          card.style.transform = `perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.05)`;
+          card.style.transform = `perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.06)`;
         }
       });
 
       card.addEventListener("mouseleave", () => {
         if (typeof gsap !== "undefined") {
-          gsap.to(card, { rotateX: 0, rotateY: 0, scale: 1, duration: 0.55, ease: "back.out(1.5)" });
+          gsap.to(card, { rotateX: 0, rotateY: 0, scale: 1, duration: 0.6, ease: "elastic.out(1, 0.5)" });
         } else {
           card.style.transform = "";
         }
@@ -275,12 +343,12 @@
   ════════════════════════════════════════════════════════ */
   function initMagnetic() {
     if (typeof gsap === "undefined") return;
-    document.querySelectorAll(".btn-primary:not([data-mag]), .btn-ghost:not([data-mag])").forEach(btn => {
+    document.querySelectorAll(".btn-primary:not([data-mag]), .btn-ghost:not([data-mag]), .featured-card:not([data-mag])").forEach(btn => {
       btn.dataset.mag = "1";
       btn.addEventListener("mousemove", e => {
         const r  = btn.getBoundingClientRect();
-        const dx = (e.clientX - r.left - r.width  / 2) * 0.2;
-        const dy = (e.clientY - r.top  - r.height / 2) * 0.2;
+        const dx = (e.clientX - r.left - r.width  / 2) * 0.15;
+        const dy = (e.clientY - r.top  - r.height / 2) * 0.15;
         gsap.to(btn, { x: dx, y: dy, duration: 0.4, ease: "power2.out" });
       });
       btn.addEventListener("mouseleave", () => {
@@ -303,7 +371,7 @@
 
     window.addEventListener("mousemove", e => { mx = e.clientX; my = e.clientY; }, { passive: true });
 
-    const SELECTORS = "a, button, .player-card, .featured-card, .stat-card, label, [role='button']";
+    const SELECTORS = "a, button, .player-card, .featured-card, .stat-card, .timeline-content, label, [role='button']";
 
     (function tick() {
       if (typeof gsap !== "undefined") {
@@ -342,39 +410,88 @@
 
     if (content) {
       gsap.to(content, {
-        y: -100, ease: "none",
+        y: -120, opacity: 0.3, ease: "none",
         scrollTrigger: { trigger: hero, start: "top top", end: "bottom top", scrub: 1.2 }
       });
     }
 
     orbs.forEach((orb, i) => {
       gsap.to(orb, {
-        y: -60 - i * 30, ease: "none",
+        y: -80 - i * 40, ease: "none",
         scrollTrigger: { trigger: hero, start: "top top", end: "bottom top", scrub: true }
       });
     });
   }
 
   /* ════════════════════════════════════════════════════════
-     SPA NAVIGATION WATCHER
+     PERFORMANCE METER ANIMATION
+  ════════════════════════════════════════════════════════ */
+  function initPerfMeters() {
+    document.querySelectorAll(".perf-meter-fill:not([data-animated])").forEach(fill => {
+      const target = fill.dataset.width || "0%";
+      fill.dataset.animated = "1";
+
+      if (typeof ScrollTrigger !== "undefined") {
+        ScrollTrigger.create({
+          trigger: fill,
+          start: "top 92%",
+          onEnter: () => { fill.style.width = target; }
+        });
+      } else {
+        const io = new IntersectionObserver(entries => {
+          entries.forEach(e => {
+            if (e.isIntersecting) {
+              fill.style.width = target;
+              io.unobserve(e.target);
+            }
+          });
+        }, { threshold: 0.3 });
+        io.observe(fill);
+      }
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════
+     PAGE TRANSITION SYSTEM
   ════════════════════════════════════════════════════════ */
   let _path = window.location.pathname;
 
-  function watchNavigation() {
+  function initPageTransitions() {
     setInterval(() => {
       if (window.location.pathname !== _path) {
+        const oldPath = _path;
         _path = window.location.pathname;
-        updateActiveNavLinks();
+
+        // Transition effect
+        document.body.classList.remove("page-entered");
+        document.body.classList.add("page-transitioning");
+
         setTimeout(() => {
-          initScrollReveal();
-          initCounters();
-          initTilt();
-          initMagnetic();
-          initHeroParallax();
-          if (typeof ScrollTrigger !== "undefined") ScrollTrigger.refresh();
-        }, 350);
+          document.body.classList.remove("page-transitioning");
+          document.body.classList.add("page-entered");
+
+          updateActiveNavLinks();
+
+          // Re-init dynamic elements
+          setTimeout(() => {
+            initScrollReveal();
+            initCounters();
+            initTilt();
+            initMagnetic();
+            initHeroParallax();
+            initPerfMeters();
+            if (typeof ScrollTrigger !== "undefined") ScrollTrigger.refresh();
+          }, 100);
+        }, 300);
+
+        // Scroll to top
+        if (lenis) {
+          lenis.scrollTo(0, { immediate: true });
+        } else {
+          window.scrollTo(0, 0);
+        }
       }
-    }, 250);
+    }, 200);
   }
 
   /* ════════════════════════════════════════════════════════
@@ -387,10 +504,13 @@
     new MutationObserver(() => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
+        initLoader();
         initScrollReveal();
         initCounters();
         initTilt();
         initMagnetic();
+        initPerfMeters();
+        if (typeof ScrollTrigger !== "undefined") ScrollTrigger.refresh();
       }, 150);
     }).observe(target, { childList: true, subtree: true });
   }
@@ -399,22 +519,21 @@
      CSS FALLBACK BOOT (no GSAP/Lenis)
   ════════════════════════════════════════════════════════ */
   function bootCSSFallback() {
-    initLoader();
     initCursor();
     initDrawer();
     initScrollRevealCSS();
     initCounters();
     initNavbar();
     initScrollProgress();
-    watchNavigation();
+    initPageTransitions();
     initMutationObserver();
+    initPerfMeters();
   }
 
   /* ════════════════════════════════════════════════════════
      MAIN BOOT
   ════════════════════════════════════════════════════════ */
   function boot() {
-    initLoader();
     initLenis();
     initCursor();
     initDrawer();
@@ -425,11 +544,13 @@
     initTilt();
     initMagnetic();
     initHeroParallax();
-    watchNavigation();
+    initPerfMeters();
+    initPageTransitions();
     initMutationObserver();
   }
 
   function start() {
+    initLoader(); // Run immediately when DOM is ready
     waitForLibs(boot);
   }
 

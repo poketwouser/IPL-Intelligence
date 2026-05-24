@@ -1,281 +1,177 @@
-# IPL Analytics Dashboard
+<p align="center">
+  <img src="https://img.shields.io/badge/IPL-Intelligence-f5a623?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iI2Y1YTYyMyIvPjwvc3ZnPg==&logoColor=white" alt="IPL Intelligence" />
+  <br/>
+  <img src="https://img.shields.io/badge/Dash-2.14+-00ADD8?style=flat-square&logo=plotly" />
+  <img src="https://img.shields.io/badge/Plotly-5.18+-3F4F75?style=flat-square&logo=plotly" />
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python" />
+  <img src="https://img.shields.io/badge/GSAP-3.12-88CE02?style=flat-square" />
+  <img src="https://img.shields.io/badge/Deploy-Render-46E3B7?style=flat-square&logo=render" />
+</p>
 
-A production-ready IPL analytics platform with 13+ analytical modules, machine learning predictions, and interactive visualizations. Built with Dash, Plotly, and Flask.
+<h1 align="center">🏏 IPL Intelligence Platform</h1>
 
-## 🏏 Features
+<p align="center">
+  <strong>Cinema-grade cricket analytics. Apple Sports × F1 aesthetics.</strong>
+  <br/>
+  <em>17 seasons · 1,200+ matches · 260K+ deliveries — decoded.</em>
+</p>
 
-### Core Modules
-- **Season Overview** — Tournament summaries, top performers, boundary metrics
-- **Match Explorer** — Detailed scorecards, batting/bowling analysis, edge case handling
-- **Player Cards** — Career statistics, season trends, performance radars
-- **Player vs Bowler** — Head-to-head matchup analysis with dismissals
-- **Player vs Player** — Side-by-side comparisons with radar overlays
-- **Player vs Team** — Performance analysis against specific opponents
-- **Venue Insights** — Venue characteristics, chase success rates, heatmaps
-- **Compare Seasons** — Multi-season analysis with animated trends
-- **All-Time Stats** — Historical leaderboards and era comparisons
+---
 
+## ✨ What Is This?
 
-## 🛠️ Technology Stack
+IPL Intelligence is a **production-grade cricket analytics platform** built with Python, Dash, and Plotly. It transforms raw Cricsheet ball-by-ball data (2008–2024) into an immersive, cinematic sports intelligence experience.
 
-**Frontend & Visualization:**
-- Dash 2.x — Web application framework
-- Plotly 5.x — Interactive charts and visualizations
-- Dash Bootstrap Components — Responsive UI components
-- HTML/CSS — Custom styling and theming
+This is not a dashboard. It's a **sports cinematography engine** — with GSAP-powered animations, glassmorphic UI, holographic player cards, scroll-triggered storytelling, and 3D tilt effects.
 
-**Backend & Data:**
-- Python 3.9+ — Core programming language
-- Pandas — Data manipulation and analysis
-- NumPy — Numerical computations
-- Flask-Caching — Performance optimization with Redis
+---
 
+## 🎯 Features
 
-## 📋 Installation
+### 📊 Analytics Modules
+| Module | Description |
+|--------|-------------|
+| **Overview** | Cinematic homepage with hero, season rewind timeline, KPI counters |
+| **Match Explorer** | Ball-by-ball scorecards, Manhattan, Worm, Fall of Wickets |
+| **Head to Head** | Team rivalry analysis with margin distributions, season arcs |
+| **Player Analysis** | FIFA-style profile cards, radar charts, performance meters |
+| **Batter vs Bowler** | Matchup arena with outcome distributions, over-by-over profiling |
+| **Team Intelligence** | Trophy cabinets, venue dominance, season performance trends |
+| **Analytics Lab** | Win probability curves, Impact Player scores, phase evolution |
 
-### Local Development
+### 🎨 Design System
+- **Dark Cinema Theme** — void-to-surface gradient palette
+- **Glassmorphism** — frosted-glass cards with 24px blur + saturation
+- **Holographic Foil** — CSS `@property` animated gradient on player cards
+- **GSAP Scroll Reveals** — directional, staggered, scale-up animations
+- **Lenis Smooth Scroll** — butter-smooth inertia scrolling
+- **3D Tilt** — perspective-based card interactions
+- **Magnetic Buttons** — cursor-attracted micro-animations
+- **Custom Cursor** — dot + trail system with hover states
+- **Stadium Glow** — pulsing radial ambient light effects
+- **Page Transitions** — blur + slide animation between routes
+
+### ⚡ Impact Player Analytics (NEW)
+- **Impact Score** — `avg(runs + wickets × 25)` per match appearance
+- **Leaderboard** — Top 15 all-time impact players
+- **Phase Strategy** — Team RPO comparison across Powerplay/Middle/Death
+- **Win Probability** — Over-by-over chase success curves
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Framework** | Dash 2.14+ (multi-page architecture) |
+| **Charting** | Plotly 5.18+ (dark-themed, interactive) |
+| **Data** | Pandas + Parquet (compressed, fast I/O) |
+| **Animations** | GSAP 3.12 + ScrollTrigger |
+| **Scrolling** | Lenis smooth scroll |
+| **Styling** | Custom CSS (2,500+ lines, design system v5) |
+| **Server** | Flask + Gunicorn |
+| **Caching** | Flask-Caching (SimpleCache) |
+| **Deployment** | Render (Procfile + render.yaml included) |
+| **Data Source** | [Cricsheet](https://cricsheet.org/) (2008–2024) |
+
+---
+
+## 🚀 Quick Start
 
 ```bash
-# Clone repository
-git clone https://github.com/poketwouser/ipl-data-curation-and-visualization.git
-cd ipl_dashboard
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Clone
+git clone https://github.com/YOUR_USERNAME/ipl-data-curation-and-visualization.git
+cd ipl-data-curation-and-visualization
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run application
+# Run
 python app.py
 ```
 
-Application will be available at `http://localhost:8050`
-
-### Docker Deployment
-
-```bash
-# Using Docker Compose
-docker-compose up
-
-# Or build and run manually
-docker build -t ipl-dashboard .
-docker run -p 8050:8050 ipl-dashboard
-```
-
-## 🚀 Quick Start
-
-1. **Season Overview** — Start with Season Overview tab to view tournament-level statistics
-2. **Search Players** — Use Player Cards tab to explore individual player performance
-3. **Match Analysis** — Navigate to Match Explorer to view detailed match scorecards
-
-## 📊 Data Structure
-
-
-### Integration with Real Data
-To use actual IPL data:
-
-```python
-# Replace data generation in app.py
-import pandas as pd
-
-matches_df = pd.read_csv('data/matches.csv')
-deliveries_df = pd.read_csv('data/deliveries.csv')
-
-# Update IPLDataGenerator class to load from CSV
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-Create `.env` file:
-
-```env
-REDIS_URL=redis://localhost:6379
-CACHE_TYPE=redis
-DEBUG=False
-DATA_PATH=./data
-```
-
-### Cache Configuration
-```python
-cache_config = {
-    'CACHE_TYPE': 'redis',  # or 'filesystem'
-    'CACHE_REDIS_URL': os.environ.get('REDIS_URL'),
-    'CACHE_DEFAULT_TIMEOUT': 3600  # 1 hour
-}
-```
-
-## 🎯 Key Modules
-
-### 1. Season Overview
-- Season selector (2008-2024)
-- Tournament winner, runner-up, metrics
-- Top run-scorer and wicket-taker
-- Runs per match chart
-- Team strength radar
-
-### 2. Match Explorer
-- Multi-select filters (season, teams, venue)
-- Match list with quick stats
-- Expandable scorecard view
-- Batting and bowling tables
-- Manhattan, worm, run-rate charts
-- Fall of wickets timeline
-
-### 3. Player Analysis
-- Player search with autocomplete
-- Career statistics display
-- Season-by-season trends
-- Performance radar chart
-- Venue heatmap
-- Form meter (last 5 innings)
-
-
-## 📈 Analytics Capabilities
-
-**Descriptive Analytics:**
-- Career aggregate statistics
-- Season-wise performance trends
-- Venue-specific metrics
-- Head-to-head matchups
-
-**Predictive Analytics:**
-- Match winner probability (XGBoost model)
-- Win probability curves (logistic regression)
-- Player similarity search (cosine similarity)
-
-## ⚡ Performance Optimization
-
-### Caching Strategy
-- **In-memory**: Player aggregates cached for 1 hour
-- **Redis**: Shared cache across multiple workers
-- **Precomputed**: Season/venue stats pre-calculated on startup
-
-### Data Optimization
-- Parquet format for efficient storage
-- Lazy loading of large datasets
-- WebGL rendering for 50,000+ data points
-
-### Callback Optimization
-- Pattern-matching callbacks for scalability
-- Prevent unnecessary updates
-- Background callbacks for expensive operations
-
-## 🐛 Edge Case Handling
-
-### Super Overs
-- Display separate innings with "SO" badge
-- Show ball-by-ball breakdown
-- Highlight winning runs
-
-### Washouts (No Result)
-- Grey overlay on match card
-- Display overs played before interruption
-- Show "Match Abandoned" label
-
-### Ties
-- Special "TIE" badge
-- Indicate if Super Over decided winner
-- Note in match details
-
-### DLS Adjustments
-- Calculate adjusted target using DLS formula
-- Show original vs revised target
-- Display resource percentages
-- Adjust run-rate graphs to show par score
-
-## 🧪 Testing
-
-### Unit Tests
-```bash
-pytest tests/test_preprocessing.py
-pytest tests/test_callbacks.py
-```
-
-### Load Testing
-```bash
-locust -f locustfile.py --host=http://localhost:8050
-```
-
-## 📚 API Reference
-
-### IPLDataGenerator
-```python
-data_gen = IPLDataGenerator()
-
-# Access precomputed data
-players = data_gen.players
-matches = data_gen.matches
-season_stats = data_gen.season_stats[2024]
-```
-
-### Callbacks
-```python
-# Example: Season overview update
-@app.callback(
-    Output("season-winner", "children"),
-    Input("season-dropdown", "value")
-)
-def update_season(season):
-    return season_stats[season]['winner']
-```
-
-## 🚢 Deployment
-
-### AWS Elastic Beanstalk
-```bash
-eb init -p python-3.9 ipl-dashboard
-eb create ipl-dashboard-env
-eb deploy
-```
-
-### Heroku
-```bash
-git push heroku main
-```
-
-### Google Cloud Run
-```bash
-gcloud run deploy ipl-dashboard \
-  --source . \
-  --port 8050 \
-  --memory 2Gi \
-  --region us-central1
-```
-
-## 🤝 Contributing
-
-1. Fork repository
-2. Create feature branch: `git checkout -b feature/xyz`
-3. Commit changes: `git commit -m "Add feature xyz"`
-4. Push to branch: `git push origin feature/xyz`
-5. Open Pull Request
-
-## 📝 License
-
-MIT License - See LICENSE file for details
-
-## 👤 Author
-
-Kiran Kumar P - DA24B008
-
-## 🙏 Acknowledgments
-
-- IPL dataset from Kaggle
-- Plotly for interactive visualizations
-- Dash for web framework
-- Bootstrap for UI components
-
-## 📞 Support
-
-For issues, questions, or suggestions:
-- Email: kirankumarp405@gmail.com
-- Website: https://ipl-match-data-analytics.vercel.app/
+Open **http://localhost:8050** in your browser.
 
 ---
 
-**Last Updated**: November 2025
-**Version**: 1.0.0
-**Status**: Production Ready
+## 📂 Project Structure
+
+```
+├── app.py                  # Main Dash application + layout
+├── pages/
+│   ├── overview.py         # Cinematic homepage + season rewind
+│   ├── match_explorer.py   # Ball-by-ball match center
+│   ├── head_to_head.py     # Team rivalry analytics
+│   ├── players.py          # Player profiles + radar charts
+│   ├── player_vs_player.py # Batter vs Bowler matchup arena
+│   ├── teams.py            # Franchise intelligence
+│   └── advanced.py         # Analytics lab + Impact Player
+├── utils/
+│   ├── analytics.py        # Statistical computation engine
+│   ├── components.py       # UI component library (50+ components)
+│   ├── constants.py        # Design tokens + team mappings
+│   ├── data_loader.py      # Parquet data pipeline
+│   └── player_images.py    # ESPNcricinfo image pipeline
+├── assets/
+│   ├── style.css           # Design system v5 (2,500+ lines)
+│   ├── animations.js       # GSAP animation engine v5
+│   └── particles.js        # Canvas particle system
+├── data/processed/         # Parquet datasets (matches, deliveries, venues)
+├── Procfile                # Render deployment
+├── render.yaml             # Render service config
+└── requirements.txt        # Python dependencies
+```
+
+---
+
+## 🌍 Deployment
+
+### Render (Recommended)
+
+1. Push to GitHub
+2. Create a new **Web Service** on [Render](https://render.com)
+3. Connect your repo
+4. Render will auto-detect `render.yaml`
+5. Deploy 🚀
+
+### Manual
+
+```bash
+gunicorn app:server --bind 0.0.0.0:8050 --workers 2 --timeout 120
+```
+
+---
+
+## 📊 Data Pipeline
+
+The platform uses pre-processed Parquet files for fast startup:
+
+1. **Raw Data** — CSV from Cricsheet (`data/raw/`)
+2. **Processing** — Jupyter notebooks (`notebooks/P01-P05`)
+3. **Output** — Optimized Parquet files (`data/processed/`)
+4. **Loading** — `utils/data_loader.py` reads Parquet at startup
+
+---
+
+## 🎨 Design Philosophy
+
+> *"Every pixel should feel like it belongs in a broadcast."*
+
+The design draws from:
+- **Apple Sports** — Clean typography, spacious layouts
+- **Formula 1 App** — Dark cinema aesthetics, data-rich displays
+- **FIFA Ultimate Team** — Holographic player cards with team colors
+- **SofaScore** — Performance meters, form curves
+- **Netflix** — Scroll-triggered content reveals
+
+---
+
+## 📜 License
+
+MIT License. Data sourced from [Cricsheet](https://cricsheet.org/) under their terms.
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ and way too much cricket data.</sub>
+</p>

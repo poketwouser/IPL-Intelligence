@@ -1,39 +1,52 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.so
 *.egg-info/
 dist/
 build/
 .eggs/
-*.egg
 
 # Virtual environments
 venv/
-env/
 .venv/
+env/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# Dash
-.dash_cache/
-
-# Data (keep parquet/csv in repo)
-*.log
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Old Next.js (deprecated)
-dashboard/node_modules/
-dashboard/.next/
-node_modules/
-.next/
+# Environment
+.env
+.env.local
+.env.production
 
-# Gemini/AI
-.gemini/
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cache
+.cache/
+.pytest_cache/
+
+# Player images (downloaded at runtime / too large for git)
+assets/images/players/*.jpg
+assets/images/players/*.png
+assets/images/players/*.webp
+!assets/images/players/.gitkeep
+
+# Build artifacts
+*.pyc

@@ -1,5 +1,6 @@
 """
-Advanced Analytics Lab — Win probability, phase dominance, scoring patterns, insights.
+Advanced Analytics Lab — Win probability, phase dominance, scoring patterns,
+Impact Player analytics, and data-driven insights.
 """
 
 import dash
@@ -10,10 +11,11 @@ import pandas as pd
 import numpy as np
 
 from utils.data_loader import load_data
-from utils.constants import apply_dark_theme
+from utils.constants import apply_dark_theme, team_abbr, team_color
 from utils.components import (
-    page_hero, section_header, stat_card, insight_card,
+    page_hero, section_header, stat_card, insight_card, ranking_row, rankings_list,
 )
+from utils.analytics import impact_player_scores, team_impact_strategy
 
 dash.register_page(__name__, path="/advanced", name="Analytics Lab", order=6)
 
@@ -226,17 +228,88 @@ def build():
                      legend=dict(x=0.5, y=1.1, xanchor="center", orientation="h"),
                      barmode="group")
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # IMPACT PLAYER ANALYTICS — NEW SECTION
+    # ══════════════════════════════════════════════════════════════════════════
+    impact_df = impact_player_scores(d, m)
+    team_strat = team_impact_strategy(d, m)
+
+    # Impact Player leaderboard
+    fig_impact = go.Figure()
+    if not impact_df.empty:
+        top_impact = impact_df.head(15).sort_values("impact_score")
+        # Get team for each player
+        bat_team_map = (d.groupby(["Batter","Batting_Team"]).size().reset_index(name="c")
+                        .sort_values("c", ascending=False).drop_duplicates("Batter")
+                        .set_index("Batter")["Batting_Team"].to_dict())
+
+        top_impact["team"] = top_impact["Player"].map(bat_team_map).fillna("N/A")
+        top_impact["color"] = top_impact["team"].apply(lambda t: team_color(t) or "#00ff87")
+        top_impact["label"] = top_impact.apply(
+            lambda r: f"{r['Player'].split()[-1]} · {team_abbr(r['team'])}", axis=1
+        )
+
+        fig_impact = go.Figure(go.Bar(
+            x=top_impact["impact_score"], y=top_impact["label"],
+            orientation="h",
+            marker=dict(color=top_impact["color"].tolist(), opacity=0.85, line=dict(width=0)),
+            text=top_impact["impact_score"].apply(lambda v: f"{v:.1f}"),
+            textposition="outside",
+            textfont=dict(color="rgba(255,255,255,0.5)", size=10),
+            hovertemplate="%{y}<br>Impact Score: %{x:.1f}<extra></extra>",
+        ))
+    apply_dark_theme(fig_impact,
+                     title="Impact Score Leaderboard — Top 15",
+                     height=420,
+                     xaxis=dict(title="Avg Impact Score per Match", showgrid=False),
+                     margin=dict(l=160, r=70, t=44, b=36))
+
+    # Team phase strategy heatmap
+    fig_team_strat = go.Figure()
+    if not team_strat.empty:
+        # Pivot to create heatmap data
+        for phase in ["Powerplay", "Middle", "Death"]:
+            pdf = team_strat[team_strat["phase"] == phase].nlargest(10, "rpo")
+            pdf["abbr"] = pdf["Batting_Team"].apply(team_abbr)
+            fig_team_strat.add_trace(go.Bar(
+                x=pdf["abbr"], y=pdf["rpo"],
+                name=phase,
+                marker=dict(color=PHASE_COLORS_MAP.get(phase, "#888"), opacity=0.8),
+                hovertemplate=f"%{{x}} · {phase}<br>RPO: %{{y:.2f}}<extra></extra>",
+            ))
+    apply_dark_theme(fig_team_strat,
+                     title="Team Run Rate by Phase — All-Time",
+                     height=340,
+                     barmode="group",
+                     xaxis=dict(showgrid=False),
+                     yaxis=dict(title="Runs per Over", gridcolor="rgba(255,255,255,0.04)"),
+                     legend=dict(x=0.5, y=1.1, xanchor="center", orientation="h"))
+
+    # Impact rankings list
+    impact_rankings = []
+    if not impact_df.empty:
+        max_impact = impact_df.iloc[0]["impact_score"]
+        impact_rankings = rankings_list(*[
+            ranking_row(i+1, row["Player"], round(row["impact_score"], 1),
+                        max_impact, " pts",
+                        team_color(bat_team_map.get(row["Player"], "")) or "#00ff87")
+            for i, (_, row) in enumerate(impact_df.head(10).iterrows())
+        ])
+
     # ── Summary KPIs ──────────────────────────────────────────────────────────
     avg_wp_early = round(np.mean([wp_pct[i] for i in range(0, 6)]), 1)
     avg_wp_death = round(np.mean([wp_pct[i] for i in range(14, 20)]), 1)
     avg_toss_win = round(toss_season["pct"].mean(), 1)
     peak_rpo_over = over_stats.loc[over_stats["boundary_pct"].idxmax(), "Over"] if not over_stats.empty else "N/A"
+    top_impactor = impact_df.iloc[0]["Player"].split()[-1] if not impact_df.empty else "N/A"
+    top_impact_score = round(impact_df.iloc[0]["impact_score"], 1) if not impact_df.empty else 0
 
     kpis_row = html.Div([
         stat_card(f"{avg_wp_early}%",  "Chase Win% — PP",    "📊", "#00d4ff"),
         stat_card(f"{avg_wp_death}%",  "Chase Win% — Death", "📊", "#ff4757"),
         stat_card(f"{avg_toss_win}%",  "Avg Toss→Win %",     "🪙", "#f5a623"),
         stat_card(f"Over {peak_rpo_over}", "Peak Boundary Over", "💥", "#00ff87"),
+        stat_card(f"{top_impact_score}", f"Top Impact ({top_impactor})", "⚡", "#7C3AED"),
     ], className="stat-grid stagger-in", style={"marginBottom": "28px"})
 
     # ── Layout ─────────────────────────────────────────────────────────────────
@@ -248,7 +321,8 @@ def build():
         page_hero(
             "🔬 ANALYTICS LAB",
             "Advanced ", "Intelligence",
-            subtitle="Win probability curves, scoring patterns, toss impact, and phase evolution — all crunched from 150K+ deliveries.",
+            subtitle="Win probability curves, scoring patterns, toss impact, phase evolution, "
+                     "and Impact Player analytics — all crunched from 150K+ deliveries.",
         ),
 
         kpis_row,
@@ -268,6 +342,28 @@ def build():
         html.Div(_card(fig_death), className="reveal",
                  style={"marginTop": "18px", "marginBottom": "28px"}),
 
+        # ═══ IMPACT PLAYER SECTION ═══
+        html.Div(className="section-divider"),
+        section_header("⚡ IMPACT PLAYER ANALYTICS", "CONTRIBUTION SCORING"),
+
+        html.Div([
+            insight_card("METHODOLOGY",
+                         "Impact Score = avg(runs + wickets × 25) per match. "
+                         "Measures a player's total offensive contribution relative to appearances. "
+                         "Players with 10+ matches included."),
+        ], style={"marginBottom": "18px"}),
+
+        html.Div([
+            html.Div([
+                section_header("IMPACT LEADERBOARD", "TOP 10"),
+                impact_rankings if impact_rankings else html.P("No data", style={"color": "var(--t4)"}),
+            ], className="glass-card reveal"),
+            _card(fig_impact),
+        ], className="chart-row two-col reveal", style={"marginBottom": "18px"}),
+
+        html.Div(_card(fig_team_strat), className="reveal",
+                 style={"marginBottom": "28px"}),
+
         # Insights
         html.Div([
             insight_card("WIN PROBABILITY",
@@ -277,8 +373,8 @@ def build():
                          f"On average, {avg_toss_win}% of toss winners also win the match — "
                          f"suggesting a modest but real advantage for toss winners."),
             insight_card("SCORING EVOLUTION",
-                         f"Death over RPO and six rates have climbed consistently since 2016 — "
-                         f"reflecting how T20 batting has evolved across IPL generations."),
+                         "Death over RPO and six rates have climbed consistently since 2016 — "
+                         "reflecting how T20 batting has evolved across IPL generations."),
         ], style={"display": "grid",
                   "gridTemplateColumns": "repeat(auto-fill, minmax(280px,1fr))",
                   "gap": "16px", "marginBottom": "28px"},

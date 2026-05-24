@@ -192,7 +192,7 @@ def update_pvp(batter, bowler, season):
         line=dict(color=bat_c, width=2.5, shape="spline"),
         marker=dict(size=8, color=bat_c,
                     line=dict(width=1.5, color="rgba(0,0,0,0.3)")),
-        fill="tozeroy", fillcolor=f"{bat_c}18",
+        fill="tozeroy", fillcolor=f"rgba({int(bat_c[1:3],16)},{int(bat_c[3:5],16)},{int(bat_c[5:7],16)},0.09)" if bat_c.startswith("#") and len(bat_c)==7 else "rgba(245,166,35,0.09)",
         hovertemplate="Over %{x}<br>Avg Runs/Ball: %{y:.2f}<extra></extra>",
     ))
     apply_dark_theme(fig_over, title="Avg Runs per Ball by Over", height=300,

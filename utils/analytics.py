@@ -335,3 +335,126 @@ def player_vs_player_stats(batter, bowler, deliveries, season_range=None):
         "fours": fours, "sixes": sixes, "dismissals": dismissals,
         "deliveries": df,
     }
+
+
+# ─── Impact Player Analytics ─────────────────────────────────────────────────
+
+def impact_player_scores(deliveries, matches, season=None):
+    """
+    Calculate Impact Player scores — measures how much a player's
+    contribution exceeds the team average in matches they play.
+
+    Impact Score = (Player's runs + wickets*25) / team_avg per match.
+    Higher = more impact per game appearance.
+    """
+    d = deliveries.copy()
+    m = matches.copy()
+
+    if season:
+        m = m[m["Season"] == season]
+        d = d[d["Match_Id"].isin(m["Id"])]
+
+    if d.empty:
+        return pd.DataFrame()
+
+    # Per-match player contribution
+    bat_contrib = (d.groupby(["Match_Id", "Batter"])["Batsman_Runs"]
+                   .sum().reset_index()
+                   .rename(columns={"Batter": "Player", "Batsman_Runs": "bat_runs"}))
+
+    wkt_df = d[is_bowler_wicket(d)]
+    bowl_contrib = (wkt_df.groupby(["Match_Id", "Bowler"]).size()
+                    .reset_index(name="wickets")
+                    .rename(columns={"Bowler": "Player"}))
+
+    # Merge
+    contrib = bat_contrib.merge(bowl_contrib, on=["Match_Id", "Player"], how="outer").fillna(0)
+    contrib["impact_raw"] = contrib["bat_runs"] + contrib["wickets"] * 25
+
+    # Aggregate by player
+    player_impact = contrib.groupby("Player").agg(
+        matches=("Match_Id", "nunique"),
+        total_runs=("bat_runs", "sum"),
+        total_wickets=("wickets", "sum"),
+        total_impact=("impact_raw", "sum"),
+        avg_impact=("impact_raw", "mean"),
+        max_impact=("impact_raw", "max"),
+    ).reset_index()
+
+    player_impact = player_impact[player_impact["matches"] >= 10]
+    player_impact["impact_score"] = round(player_impact["avg_impact"], 1)
+    player_impact = player_impact.sort_values("impact_score", ascending=False)
+
+    return player_impact
+
+
+def phase_impact_analysis(deliveries, matches, season=None):
+    """
+    Analyzes which game phase (Powerplay, Middle, Death) players
+    contribute most impact in. Returns phase-wise contribution breakdown.
+    """
+    d = deliveries.copy()
+    m = matches.copy()
+
+    if season:
+        m = m[m["Season"] == season]
+        d = d[d["Match_Id"].isin(m["Id"])]
+
+    if d.empty:
+        return pd.DataFrame()
+
+    d["phase"] = d["Over"].apply(
+        lambda o: "Powerplay" if o <= 6 else ("Middle" if o <= 15 else "Death")
+    )
+
+    # Phase batting
+    phase_bat = (d.groupby(["Batter", "phase"])["Batsman_Runs"]
+                 .agg(["sum", "count"])
+                 .reset_index()
+                 .rename(columns={"Batter": "Player", "sum": "runs", "count": "balls"}))
+    phase_bat["sr"] = round(phase_bat["runs"] / phase_bat["balls"] * 100, 1)
+
+    # Phase wickets
+    wkt_df = d[is_bowler_wicket(d)]
+    phase_bowl = (wkt_df.groupby(["Bowler", "phase"]).size()
+                  .reset_index(name="wickets")
+                  .rename(columns={"Bowler": "Player"}))
+
+    # Merge
+    phase_data = phase_bat.merge(phase_bowl, on=["Player", "phase"], how="outer").fillna(0)
+    phase_data["impact"] = phase_data["runs"] + phase_data["wickets"] * 25
+
+    return phase_data
+
+
+def team_impact_strategy(deliveries, matches, season=None):
+    """
+    Compares how each team distributes impact across phases.
+    Returns team-phase-level RPO and boundary percentages.
+    """
+    d = deliveries.copy()
+    m = matches.copy()
+
+    if season:
+        m = m[m["Season"] == season]
+        d = d[d["Match_Id"].isin(m["Id"])]
+
+    if d.empty:
+        return pd.DataFrame()
+
+    d["phase"] = d["Over"].apply(
+        lambda o: "Powerplay" if o <= 6 else ("Middle" if o <= 15 else "Death")
+    )
+    d["boundary"] = d["Batsman_Runs"].isin([4, 6])
+
+    team_phase = d.groupby(["Batting_Team", "phase"]).agg(
+        runs=("Batsman_Runs", "sum"),
+        balls=("Batsman_Runs", "count"),
+        boundaries=("boundary", "sum"),
+    ).reset_index()
+
+    team_phase["rpo"] = round(team_phase["runs"] / (team_phase["balls"] / 6), 2)
+    team_phase["boundary_pct"] = round(team_phase["boundaries"] / team_phase["balls"] * 100, 1)
+
+    return team_phase
+

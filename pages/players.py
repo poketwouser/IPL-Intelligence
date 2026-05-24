@@ -1,5 +1,6 @@
 """
-Player Analysis Page — FIFA-style profile card, premium form charts.
+Player Analysis Page — FIFA-style profile card with real images,
+performance meters, radar charts, premium form charts.
 """
 
 import dash
@@ -19,8 +20,13 @@ from utils.analytics import (
 )
 from utils.components import (
     page_hero, controls_bar, control_group,
-    player_profile_card, section_header, insight_card,
+    player_profile_card, section_header, insight_card, _rgba,
 )
+
+try:
+    from utils.player_images import get_player_image_url
+except ImportError:
+    def get_player_image_url(name): return None
 
 dash.register_page(__name__, path="/players", name="Player Analysis", order=3)
 
@@ -69,6 +75,74 @@ layout = html.Div([
 ])
 
 
+def _performance_meter(label, value, max_val, color="#f5a623"):
+    """Create an animated performance meter bar."""
+    pct = min(100, round(value / max_val * 100, 1)) if max_val else 0
+    return html.Div([
+        html.Div(label, className="perf-meter-label"),
+        html.Div([
+            html.Div(
+                className="perf-meter-fill",
+                style={"width": "0%", "background": f"linear-gradient(90deg, {color}, {color}cc)"},
+                **{"data-width": f"{pct}%"}
+            ),
+        ], className="perf-meter-bar"),
+        html.Div(str(round(value, 1)), className="perf-meter-value"),
+    ], className="perf-meter")
+
+
+def _radar_chart(bat_stats, bowl_stats, clr):
+    """Create a radar chart for player stats."""
+    categories = []
+    values = []
+
+    if bat_stats:
+        # Normalize stats to 0-100 scale
+        sr = min(100, bat_stats.get("sr", 0) / 2)
+        avg = min(100, bat_stats.get("average", 0) / 0.6)
+        bp = min(100, bat_stats.get("boundary_pct", 0) * 3)
+        categories += ["Strike Rate", "Average", "Boundary%"]
+        values += [sr, avg, bp]
+
+    if bowl_stats and bowl_stats.get("wickets", 0) > 0:
+        eco = max(0, 100 - (bowl_stats.get("economy", 10) - 5) * 15)
+        dp = min(100, bowl_stats.get("dot_pct", 0) * 2)
+        categories += ["Economy", "Dot Ball%"]
+        values += [eco, dp]
+
+    if not categories:
+        return None
+
+    fig = go.Figure(go.Scatterpolar(
+        r=values + [values[0]],
+        theta=categories + [categories[0]],
+        fill='toself',
+        fillcolor=_rgba(clr, 0.13),
+        line=dict(color=clr, width=2),
+        marker=dict(size=6, color=clr),
+    ))
+    fig.update_layout(
+        polar=dict(
+            bgcolor="rgba(0,0,0,0)",
+            radialaxis=dict(
+                visible=True, range=[0, 100],
+                gridcolor="rgba(255,255,255,0.06)",
+                tickfont=dict(size=8, color="rgba(255,255,255,0.3)"),
+            ),
+            angularaxis=dict(
+                gridcolor="rgba(255,255,255,0.06)",
+                tickfont=dict(color="rgba(255,255,255,0.5)", size=10),
+            ),
+        ),
+        showlegend=False,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=60, r=60, t=30, b=30),
+        height=280,
+    )
+    return fig
+
+
 @callback(
     Output("pa-profile", "children"),
     Output("pa-charts",  "children"),
@@ -90,11 +164,43 @@ def update_player(player, season_range):
     clr   = team_color(team) or "#f5a623"
     bat   = batting_summary(player, d)
     bowl  = bowling_summary(player, d)
+    image_url = get_player_image_url(player)
 
-    # Profile card
+    # Profile card with image
     bat_stats  = bat  if role in ("Batter",  "All-rounder") else None
     bowl_stats = bowl if role in ("Bowler",  "All-rounder") else None
-    profile    = player_profile_card(player, team, role, bat_stats, bowl_stats)
+
+    # Build enhanced profile with performance meters
+    profile_children = [
+        player_profile_card(player, team, role, bat_stats, bowl_stats, image_url=image_url),
+    ]
+
+    # Performance meters
+    meters = []
+    if bat_stats and bat.get("runs", 0) > 0:
+        meters.append(_performance_meter("SR", bat["sr"], 200, clr))
+        meters.append(_performance_meter("AVG", bat["average"], 60, clr))
+        meters.append(_performance_meter("BDY%", bat["boundary_pct"], 40, "#00D4FF"))
+    if bowl_stats and bowl.get("wickets", 0) > 0:
+        meters.append(_performance_meter("ECO", max(0, 12 - bowl["economy"]) if isinstance(bowl["economy"], (int, float)) else 0, 12, "#ff4757"))
+        meters.append(_performance_meter("DOT%", bowl["dot_pct"], 60, "#a855f7"))
+
+    if meters:
+        profile_children.append(
+            html.Div(meters, className="glass-card reveal", style={"marginBottom": "24px"})
+        )
+
+    # Radar chart
+    radar_fig = _radar_chart(bat_stats, bowl_stats, clr)
+    if radar_fig:
+        profile_children.append(
+            html.Div(
+                dcc.Graph(figure=radar_fig, config={"displayModeBar": False}),
+                className="glass-card reveal-scale", style={"marginBottom": "24px", "maxWidth": "400px"}
+            )
+        )
+
+    profile = html.Div(profile_children)
 
     # ── Charts ───────────────────────────────────────────────────────────────
     charts = []
@@ -198,7 +304,7 @@ def update_player(player, season_range):
         if not db.empty:
             fig_dis = px.pie(
                 db, names="kind", values="count",
-                title="Dismissal Breakdown", hole=0.45,
+                title="Dismissal Breakdown", hole=0.5,
                 color_discrete_sequence=["#f5a623","#00d4ff","#ff4757","#a855f7","#00ff87","#ff6b35"],
             )
             fig_dis.update_traces(

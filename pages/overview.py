@@ -1,5 +1,7 @@
 """
-Overview — Cinematic homepage. Apple Sports × F1 aesthetic.
+Overview — Cinematic Homepage v5.0
+Apple Sports × F1 × Netflix cinematic cricket intelligence.
+Full-screen hero, season timeline, trending analytics, scroll storytelling.
 """
 
 import dash
@@ -9,12 +11,17 @@ import pandas as pd
 import numpy as np
 
 from utils.data_loader import load_data
-from utils.constants import team_abbr, team_color, apply_dark_theme
+from utils.constants import team_abbr, team_color, apply_dark_theme, TEAM_INFO
 from utils.components import (
     stat_card, player_card, player_card_grid,
     section_header, insight_card, featured_card,
     ranking_row, rankings_list,
 )
+
+try:
+    from utils.player_images import get_player_image_url
+except ImportError:
+    def get_player_image_url(name): return None
 
 dash.register_page(__name__, path="/", name="Overview", order=0)
 
@@ -31,8 +38,13 @@ def build():
     total_matches = len(m)
     total_runs    = int(d["Total_Runs"].sum())
     total_sixes   = int((d["Batsman_Runs"] == 6).sum())
+    total_fours   = int((d["Batsman_Runs"] == 4).sum())
     seasons_count = m["Season"].nunique()
     total_players = d["Batter"].nunique()
+    total_venues  = m["Venue"].nunique()
+
+    # Format runs in millions properly
+    runs_millions = total_runs / 1_000_000
 
     # ── Team/player maps ─────────────────────────────────────────────
     bat_team = (d.groupby(["Batter","Batting_Team"]).size().reset_index(name="c")
@@ -55,30 +67,44 @@ def build():
                 .reset_index(name="Wickets").nlargest(10, "Wickets"))
     top_bowl["Team"] = top_bowl["Bowler"].map(bowl_team).fillna("N/A")
 
-    # ── Titles ───────────────────────────────────────────────────────
+    # ── Titles & Champions ───────────────────────────────────────────
     finals = m[m["Match_Type"] == "Final"] if "Match_Type" in m.columns else pd.DataFrame()
     titles = finals["Winner"].value_counts() if not finals.empty else pd.Series(dtype=int)
 
-    # ── Season champion ───────────────────────────────────────────────
     latest_season = int(m["Season"].max())
+    min_season    = int(m["Season"].min())
     champ_match   = finals[finals["Season"] == latest_season] if not finals.empty else pd.DataFrame()
     champion      = champ_match["Winner"].iloc[0] if not champ_match.empty else "N/A"
-    orange_cap    = top_bat.iloc[0]["Batter"] if not top_bat.empty else "N/A"
-    purple_cap    = top_bowl.iloc[0]["Bowler"] if not top_bowl.empty else "N/A"
+
+    # Season-specific Orange/Purple cap
+    latest_ids = m[m["Season"] == latest_season]["Id"]
+    d_latest = d[d["Match_Id"].isin(latest_ids)]
+    orange_latest = d_latest.groupby("Batter")["Batsman_Runs"].sum().nlargest(1)
+    purple_wkt_mask = (
+        (d_latest["Is_Wicket"] == 1) &
+        d_latest["Player_Dismissed"].notna() &
+        (~d_latest["Dismissal_Kind"].isin(["Run Out","Retired Hurt","Retired Out","Obstructing The Field"]))
+    )
+    purple_latest = d_latest[purple_wkt_mask].groupby("Bowler").size().nlargest(1)
+    orange_cap = orange_latest.index[0] if not orange_latest.empty else top_bat.iloc[0]["Batter"]
+    purple_cap = purple_latest.index[0] if not purple_latest.empty else top_bowl.iloc[0]["Bowler"]
 
     # ═══════════════════════════════════════════════════════════════════
-    # CINEMATIC HERO
+    # CINEMATIC HERO — Full viewport, stadium atmosphere
     # ═══════════════════════════════════════════════════════════════════
     hero = html.Section([
+        # Background layers
         html.Div(className="home-hero-bg", children=[
             html.Div(className="home-hero-grid"),
             html.Div(className="home-hero-orb home-hero-orb-1"),
             html.Div(className="home-hero-orb home-hero-orb-2"),
             html.Div(className="home-hero-orb home-hero-orb-3"),
+            html.Div(className="stadium-sweep"),
         ]),
 
+        # Main content
         html.Div([
-            html.Div("IPL · 2008 – 2024 · CRICKET INTELLIGENCE", className="home-hero-eyebrow"),
+            html.Div(f"IPL · {min_season} – {latest_season} · CRICKET INTELLIGENCE", className="home-hero-eyebrow"),
 
             html.H1([
                 html.Span("CRICKET", className="line-1"),
@@ -86,11 +112,12 @@ def build():
             ], className="home-hero-title"),
 
             html.P(
-                f"{seasons_count} seasons. {total_matches:,} matches. {int(total_runs/1e6):.1f}M runs. "
+                f"{seasons_count} seasons. {total_matches:,} matches. {runs_millions:.1f}M runs. "
                 "Every delivery, every wicket, every moment — decoded.",
                 className="home-hero-sub",
             ),
 
+            # Hero stat counters
             html.Div([
                 html.Div([
                     html.Div([
@@ -105,7 +132,7 @@ def build():
                 html.Div([
                     html.Div([
                         html.Span(className="stat-value",
-                                  **{"data-counter": str(round(total_runs / 1e6, 1)),
+                                  **{"data-counter": str(round(runs_millions, 1)),
                                      "data-suffix": "M", "data-decimals": "1",
                                      "data-duration": "1800"}),
                     ], className="hero-stat-val"),
@@ -149,23 +176,29 @@ def build():
     ], className="home-hero")
 
     # ═══════════════════════════════════════════════════════════════════
-    # SEASON BANNER
+    # SEASON BANNER — Champion spotlight
     # ═══════════════════════════════════════════════════════════════════
+    champ_color = team_color(champion) if champion != "N/A" else "#f5a623"
     season_banner = html.Div([
         html.Div(str(latest_season), className="season-banner-year"),
         html.Div(className="season-banner-divider"),
         html.Div([
-            html.Div(team_abbr(champion), className="season-banner-stat-val"),
+            html.Div([
+                html.Span(team_abbr(champion), style={
+                    "color": champ_color, "fontWeight": "900",
+                    "fontFamily": "var(--font-display)", "letterSpacing": "0.05em"
+                }),
+            ], className="season-banner-stat-val"),
             html.Div("IPL Champion", className="season-banner-stat-lbl"),
         ], className="season-banner-stat"),
         html.Div(className="season-banner-divider"),
         html.Div([
-            html.Div(orange_cap.split()[-1], className="season-banner-stat-val"),
+            html.Div(orange_cap.split()[-1] if orange_cap else "N/A", className="season-banner-stat-val"),
             html.Div("Orange Cap", className="season-banner-stat-lbl"),
         ], className="season-banner-stat"),
         html.Div(className="season-banner-divider"),
         html.Div([
-            html.Div(purple_cap.split()[-1], className="season-banner-stat-val"),
+            html.Div(purple_cap.split()[-1] if purple_cap else "N/A", className="season-banner-stat-val"),
             html.Div("Purple Cap", className="season-banner-stat-lbl"),
         ], className="season-banner-stat"),
         html.Div(className="season-banner-divider"),
@@ -176,7 +209,7 @@ def build():
     ], className="season-banner reveal")
 
     # ═══════════════════════════════════════════════════════════════════
-    # FEATURED NAV CARDS
+    # FEATURED NAV — Module showcase
     # ═══════════════════════════════════════════════════════════════════
     nav_grid = html.Div([
         featured_card("/match-explorer",   "📋", "MATCH CENTER",
@@ -212,20 +245,21 @@ def build():
         stat_card(str(total_matches), "Matches",   "🏟", "#F5A623", counter=True, duration=1600),
         stat_card(f"{total_runs:,}",  "Total Runs","🏏", "#00D4FF", counter=True, duration=1800),
         stat_card(str(total_sixes),   "Sixes",     "💥", "#00FF87", counter=True, duration=2000),
-        stat_card(str(seasons_count), "Seasons",   "📅", "#7C3AED"),
-        stat_card(str(m["Venue"].nunique()), "Venues", "🗺", "#FF6B35"),
+        stat_card(str(total_fours),   "Fours",     "4️⃣", "#7C3AED", counter=True, duration=1800),
+        stat_card(str(total_venues),  "Venues",    "🗺", "#FF6B35"),
         stat_card(str(titles.max() if not titles.empty else 0),
                   "Most Titles",  "🏆", "#FFD700"),
     ], className="stat-grid stagger-in", style={"marginBottom": "var(--s8)"})
 
     # ═══════════════════════════════════════════════════════════════════
-    # PLAYER CARDS — Top 5 Orange Cap
+    # TOP PLAYER CARDS — With images
     # ═══════════════════════════════════════════════════════════════════
     bat_cards = player_card_grid([
         player_card(
             row["Batter"], row["Team"],
             f"{row['Batsman_Runs']:,}", "RUNS",
             rank=i + 1,
+            image_url=get_player_image_url(row["Batter"]),
         )
         for i, (_, row) in enumerate(top_bat.head(5).iterrows())
     ])
@@ -235,12 +269,49 @@ def build():
             row["Bowler"], row["Team"],
             str(row["Wickets"]), "WKTs",
             rank=i + 1,
+            image_url=get_player_image_url(row["Bowler"]),
         )
         for i, (_, row) in enumerate(top_bowl.head(5).iterrows())
     ])
 
     # ═══════════════════════════════════════════════════════════════════
-    # CHARTS
+    # SEASON REWIND TIMELINE
+    # ═══════════════════════════════════════════════════════════════════
+    timeline_items = []
+    if not finals.empty:
+        season_champs = finals.sort_values("Season", ascending=False).head(10)
+        for _, row in season_champs.iterrows():
+            s = int(row["Season"])
+            w = row["Winner"] if pd.notna(row["Winner"]) else "N/A"
+            wc = team_color(w) or "#f5a623"
+            potm = row.get("Player_Of_Match", "")
+            potm_str = str(potm) if pd.notna(potm) else ""
+
+            timeline_items.append(html.Div([
+                html.Div(className="timeline-dot", style={"background": wc, "boxShadow": f"0 0 12px {wc}44"}),
+                html.Div(str(s), className="timeline-year", style={"color": wc}),
+                html.Div([
+                    html.Div([
+                        html.Span("🏆 ", style={"fontSize": "0.9rem"}),
+                        html.Span(w, className="timeline-champion", style={"color": wc}),
+                    ]),
+                    html.Div(
+                        f"Final MVP: {potm_str}" if potm_str else f"Champions",
+                        className="timeline-meta",
+                    ),
+                ], className="timeline-content"),
+            ], className="timeline-item"))
+
+    rewind_section = html.Div([
+        html.Div([
+            html.Div("SEASON REWIND", className="rewind-title"),
+            html.Div("A decade of dominance, upsets, and glory.", className="rewind-subtitle"),
+        ], className="rewind-header reveal"),
+        html.Div(timeline_items, className="season-timeline"),
+    ], className="rewind-section") if timeline_items else html.Div()
+
+    # ═══════════════════════════════════════════════════════════════════
+    # CHARTS — Premium treatment
     # ═══════════════════════════════════════════════════════════════════
 
     # Season trend
@@ -278,26 +349,13 @@ def build():
     fig_toss = go.Figure(go.Pie(
         labels=toss_dec["Decision"],
         values=toss_dec["Count"],
-        hole=0.6,
+        hole=0.65,
         marker=dict(colors=["#F5A623", "#00D4FF"], line=dict(color="rgba(0,0,0,0.5)", width=2)),
         textfont=dict(color="rgba(255,255,255,0.75)", size=12),
         hovertemplate="%{label}: %{value} (%{percent})<extra></extra>",
     ))
     apply_dark_theme(fig_toss, title="Toss Decision Split", height=280, showlegend=True,
                      legend=dict(x=0.5, y=-0.1, xanchor="center", orientation="h"))
-
-    # Win by type
-    result_counts = m["Result"].value_counts().head(4).reset_index()
-    result_counts.columns = ["Result", "Count"]
-    fig_result = go.Figure(go.Bar(
-        x=result_counts["Count"], y=result_counts["Result"],
-        orientation="h",
-        marker=dict(color=["#F5A623","#00D4FF","#00FF87","#FF1744"][:len(result_counts)],
-                    opacity=0.8, line=dict(width=0)),
-        hovertemplate="%{y}: %{x}<extra></extra>",
-    ))
-    apply_dark_theme(fig_result, title="Match Result Types", height=280, showlegend=False,
-                     xaxis=dict(showgrid=False), yaxis=dict(showgrid=False))
 
     # Boundary % by season
     d_copy = d.copy()
@@ -408,7 +466,7 @@ def build():
     # ═══════════════════════════════════════════════════════════════════
     return html.Div([
 
-        # 1 · Cinematic hero (full-width, breaks out of page-content padding)
+        # 1 · Cinematic hero (full-width)
         hero,
 
         # 2 · Season banner
@@ -422,7 +480,7 @@ def build():
         section_header("PLATFORM STATS", f"{total_matches:,} MATCHES ANALYSED"),
         kpi_strip,
 
-        # 5 · Top Player Cards
+        # 5 · Top Player Cards with images
         section_header("ORANGE CAP — ALL TIME", "RUNS LEADERS"),
         bat_cards,
         html.Div(style={"height": "var(--s6)"}),
@@ -431,23 +489,27 @@ def build():
         bowl_cards,
         html.Div(style={"height": "var(--s8)"}),
 
-        # 6 · Charts
-        section_header("SEASON OVERVIEW", "2008 – 2024"),
+        # 6 · Season Rewind Timeline
+        html.Div(className="section-divider"),
+        rewind_section,
+        html.Div(className="section-divider"),
+
+        # 7 · Charts
+        section_header("SEASON OVERVIEW", f"{min_season} – {latest_season}"),
         html.Div([
             _chart(fig_season),
         ], className="reveal mb-lg"),
 
         html.Div([
             _chart(fig_toss),
-            _chart(fig_result),
             _chart(fig_bnd),
-        ], className="chart-row three-col reveal mb-lg"),
+        ], className="chart-row two-col reveal mb-lg"),
 
-        # 7 · Titles
+        # 8 · Titles
         section_header("TITLE RACE", "IPL CHAMPIONSHIPS"),
         html.Div(_chart(fig_titles), className="reveal mb-lg"),
 
-        # 8 · Top 10 charts + rankings
+        # 9 · Top 10 charts + rankings
         section_header("RECORDS", "ALL-TIME LEADERS"),
         html.Div([
             html.Div([
@@ -465,12 +527,12 @@ def build():
             _chart(fig_topbowl),
         ], className="chart-row two-col reveal mb-lg"),
 
-        # 9 · Insights
+        # 10 · Insights
         html.Div([
             insight_card("PLATFORM",
-                         f"IPL Intelligence covers all {seasons_count} seasons from 2008 to 2024 — "
-                         f"{total_matches:,} matches, {int(total_runs/1e6):.1f}M runs, "
-                         f"and {total_sixes:,} sixes across {m['Venue'].nunique()} venues."),
+                         f"IPL Intelligence covers all {seasons_count} seasons from {min_season} to {latest_season} — "
+                         f"{total_matches:,} matches, {runs_millions:.1f}M runs, "
+                         f"and {total_sixes:,} sixes across {total_venues} venues."),
             insight_card("DOMINANCE",
                          f"Mumbai Indians and Chennai Super Kings are the benchmark franchises — "
                          f"holding the most IPL titles and consistent top-3 finishes across eras."),
