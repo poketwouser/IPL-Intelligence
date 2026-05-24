@@ -1,7 +1,9 @@
-"""Player Analysis Page — ported from P08 with corrected role detection and season-wise form."""
+"""
+Player Analysis Page — FIFA-style profile card, premium form charts.
+"""
+
 import dash
 from dash import html, dcc, Input, Output, callback
-import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
@@ -15,39 +17,63 @@ from utils.analytics import (
     player_phase_batting, player_phase_bowling,
     dismissal_breakdown, get_player_team,
 )
+from utils.components import (
+    page_hero, controls_bar, control_group,
+    player_profile_card, section_header, insight_card,
+)
 
 dash.register_page(__name__, path="/players", name="Player Analysis", order=3)
 
-DATA = load_data()
+DATA    = load_data()
 PLAYERS = get_player_list(DATA["deliveries"])
 SMIN, SMAX = get_season_range(DATA["matches"])
 
+_default_player = next(
+    (p for p in ["V Kohli", "SK Raina", "RG Sharma"] if p in PLAYERS),
+    PLAYERS[0] if PLAYERS else ""
+)
+
 layout = html.Div([
-    html.H2("🏏 Player Analysis", className="page-header"),
-    html.Div([
-        html.Div([
-            html.Label("Select Player", className="kpi-label mb-1"),
-            dcc.Dropdown(id="pa-player", options=[{"label": p, "value": p} for p in PLAYERS],
-                         value="V Kohli" if "V Kohli" in PLAYERS else PLAYERS[0]),
-        ], style={"flex": "1", "minWidth": "250px"}),
-        html.Div([
-            html.Label("Season Range", className="kpi-label mb-1"),
-            dcc.RangeSlider(id="pa-season", min=SMIN, max=SMAX, step=1,
-                            value=[SMIN, SMAX],
-                            marks={y: str(y) for y in range(SMIN, SMAX + 1, 2)},
-                            tooltip={"placement": "bottom"}),
-        ], style={"flex": "2"}),
-    ], style={"display": "flex", "gap": "16px", "marginBottom": "16px", "alignItems": "flex-end"}),
-    html.Div(id="pa-kpi"),
+    page_hero(
+        "🏏 PLAYER ANALYSIS",
+        "Player ", "Intelligence",
+        subtitle="Career stats, form trends, phase breakdowns, and dismissal patterns — all in one view.",
+    ),
+
+    # Controls
+    controls_bar(
+        control_group(
+            "Select Player",
+            dcc.Dropdown(
+                id="pa-player",
+                options=[{"label": p, "value": p} for p in PLAYERS],
+                value=_default_player,
+                clearable=False,
+                style={"color": "black"},
+            ),
+        ),
+        control_group(
+            "Season Range",
+            dcc.RangeSlider(
+                id="pa-season", min=SMIN, max=SMAX, step=1,
+                value=[SMIN, SMAX],
+                marks={y: str(y) for y in range(SMIN, SMAX + 1, 3)},
+                tooltip={"placement": "bottom"},
+            ),
+        ),
+    ),
+
+    # Dynamic sections
+    html.Div(id="pa-profile"),
     html.Div(id="pa-charts"),
 ])
 
 
 @callback(
-    Output("pa-kpi", "children"),
-    Output("pa-charts", "children"),
-    Input("pa-player", "value"),
-    Input("pa-season", "value"),
+    Output("pa-profile", "children"),
+    Output("pa-charts",  "children"),
+    Input("pa-player",  "value"),
+    Input("pa-season",  "value"),
 )
 def update_player(player, season_range):
     if not player:
@@ -55,150 +81,189 @@ def update_player(player, season_range):
 
     d_all = DATA["deliveries"]
     m_all = DATA["matches"]
-
-    # Filter by season
     s0, s1 = season_range
     season_ids = m_all[(m_all["Season"] >= s0) & (m_all["Season"] <= s1)]["Id"]
     d = d_all[d_all["Match_Id"].isin(season_ids)]
 
-    role = classify_player_role(player, d)
-    team = get_player_team(player, d)
-    clr = team_color(team)
-    bat = batting_summary(player, d)
-    bowl = bowling_summary(player, d)
+    role  = classify_player_role(player, d)
+    team  = get_player_team(player, d)
+    clr   = team_color(team) or "#f5a623"
+    bat   = batting_summary(player, d)
+    bowl  = bowling_summary(player, d)
 
-    # ─── KPI Card ────────────────────────────────────────────────────────────
-    def mkv(label, val):
-        return html.Span([html.Span(f"{label}: ", style={"fontWeight": "600"}), html.Span(str(val)), html.Br()])
+    # Profile card
+    bat_stats  = bat  if role in ("Batter",  "All-rounder") else None
+    bowl_stats = bowl if role in ("Bowler",  "All-rounder") else None
+    profile    = player_profile_card(player, team, role, bat_stats, bowl_stats)
 
-    bat_kpis = html.Div([
-        html.H6("🏏 Batting", style={"color": "#3EC1D3", "fontWeight": "600"}),
-        html.P([
-            mkv("Runs", bat["runs"]), mkv("Innings", bat["innings"]),
-            mkv("SR", bat["sr"]), mkv("Avg", bat["average"]),
-            mkv("4s / 6s", f"{bat['fours']} / {bat['sixes']}"),
-            mkv("HS", bat["high_score"]), mkv("50s / 100s", f"{bat['fifties']} / {bat['hundreds']}"),
-        ], style={"fontSize": "13px", "marginBottom": "0"}),
-    ]) if role in ("Batter", "All-rounder") else None
-
-    bowl_kpis = html.Div([
-        html.H6("🎯 Bowling", style={"color": "#F76C6C", "fontWeight": "600"}),
-        html.P([
-            mkv("Wickets", bowl["wickets"]), mkv("Innings", bowl["innings"]),
-            mkv("Economy", bowl["economy"]), mkv("SR", bowl["sr"]),
-            mkv("Dot %", f"{bowl['dot_pct']}%"),
-        ], style={"fontSize": "13px", "marginBottom": "0"}),
-    ]) if role in ("Bowler", "All-rounder") else None
-
-    kpi_card = html.Div([
-        html.Div([
-            html.H5(f"{player}  •  {team_abbr(team)}", style={"fontWeight": "700", "color": clr}),
-            html.Small(f"Role: {role}", style={"color": "rgba(255,255,255,0.5)"}),
-        ]),
-        html.Hr(style={"borderColor": clr, "opacity": "0.3"}),
-        html.Div([bat_kpis, bowl_kpis], style={"display": "flex", "gap": "24px", "flexWrap": "wrap"}),
-    ], className="glass-card mb-3", style={"border": f"1px solid {clr}"})
-
-    # ─── Charts ──────────────────────────────────────────────────────────────
+    # ── Charts ───────────────────────────────────────────────────────────────
     charts = []
 
-    # SEASON-WISE FORM (CORRECTED: not innings-by-innings)
+    def _chart_wrap(fig, cls="glass-card"):
+        return html.Div(dcc.Graph(figure=fig, config={"displayModeBar": False}), className=cls)
+
+    # Batting form
     if role in ("Batter", "All-rounder"):
         sb = player_season_batting(player, d)
         if not sb.empty:
-            # Season Runs bar
-            fig_runs = px.bar(sb, x="Season", y="runs", title="Season-wise Runs",
+            fig_runs = px.bar(sb, x="Season", y="runs", title=f"Season-wise Runs — {player}",
                               text="runs", color_discrete_sequence=[clr])
-            fig_runs.update_traces(textposition="outside")
-            apply_dark_theme(fig_runs, height=340, xaxis=dict(dtick=1))
+            fig_runs.update_traces(
+                textposition="outside",
+                textfont=dict(color="rgba(255,255,255,0.55)", size=11),
+                marker_line_width=0,
+            )
+            apply_dark_theme(fig_runs, height=320,
+                             xaxis=dict(dtick=1, showgrid=False),
+                             yaxis=dict(gridcolor="rgba(255,255,255,0.04)"))
 
-            # Season SR + Average trend
             fig_form = go.Figure()
-            fig_form.add_trace(go.Scatter(x=sb["Season"], y=sb["sr"], mode="lines+markers",
-                                          name="Strike Rate", line=dict(color="#00b4d8", width=2)))
-            fig_form.add_trace(go.Scatter(x=sb["Season"], y=sb["average"], mode="lines+markers",
-                                          name="Average", line=dict(color="#ffd166", width=2), yaxis="y2"))
-            apply_dark_theme(fig_form, title="Batting Form — SR & Average by Season", height=340,
-                             yaxis=dict(title="Strike Rate"), yaxis2=dict(title="Average", overlaying="y", side="right"),
-                             xaxis=dict(dtick=1))
+            fig_form.add_trace(go.Scatter(
+                x=sb["Season"], y=sb["sr"], name="Strike Rate",
+                mode="lines+markers",
+                line=dict(color="#00d4ff", width=2.5, shape="spline"),
+                marker=dict(size=7, color="#00d4ff"),
+                hovertemplate="Season %{x}<br>SR: %{y:.1f}<extra></extra>",
+            ))
+            fig_form.add_trace(go.Scatter(
+                x=sb["Season"], y=sb["average"], name="Average",
+                mode="lines+markers",
+                line=dict(color="#f5a623", width=2.5, shape="spline"),
+                marker=dict(size=7, color="#f5a623"),
+                yaxis="y2",
+                hovertemplate="Season %{x}<br>Avg: %{y:.1f}<extra></extra>",
+            ))
+            apply_dark_theme(fig_form, height=320,
+                             title="Batting Form — Strike Rate & Average",
+                             yaxis=dict(title="Strike Rate"),
+                             yaxis2=dict(title="Average", overlaying="y", side="right", showgrid=False),
+                             xaxis=dict(dtick=1, showgrid=False),
+                             legend=dict(x=0.5, y=1.1, xanchor="center", orientation="h"))
 
             charts.append(html.Div([
-                html.Div(dcc.Graph(figure=fig_runs, config={"displayModeBar": False}), className="glass-card"),
-                html.Div(dcc.Graph(figure=fig_form, config={"displayModeBar": False}), className="glass-card"),
-            ], className="chart-row two-col"))
+                _chart_wrap(fig_runs, "glass-card"),
+                _chart_wrap(fig_form, "glass-card"),
+            ], className="chart-row two-col reveal"))
 
+    # Bowling form
     if role in ("Bowler", "All-rounder"):
         sw = player_season_bowling(player, d)
         if not sw.empty:
-            fig_wkts = px.bar(sw, x="Season", y="wickets", title="Season-wise Wickets",
-                              text="wickets", color_discrete_sequence=["#f94144"])
-            fig_wkts.update_traces(textposition="outside")
-            apply_dark_theme(fig_wkts, height=340, xaxis=dict(dtick=1))
+            fig_wkts = px.bar(sw, x="Season", y="wickets",
+                              title=f"Season-wise Wickets — {player}",
+                              text="wickets",
+                              color_discrete_sequence=["#ff4757"])
+            fig_wkts.update_traces(
+                textposition="outside",
+                textfont=dict(color="rgba(255,255,255,0.55)", size=11),
+                marker_line_width=0,
+            )
+            apply_dark_theme(fig_wkts, height=320,
+                             xaxis=dict(dtick=1, showgrid=False),
+                             yaxis=dict(gridcolor="rgba(255,255,255,0.04)"))
 
-            fig_bowl_form = go.Figure()
-            fig_bowl_form.add_trace(go.Scatter(x=sw["Season"], y=sw["economy"], mode="lines+markers",
-                                                name="Economy", line=dict(color="#00b4d8", width=2)))
-            fig_bowl_form.add_trace(go.Scatter(x=sw["Season"], y=sw["dot_pct"], mode="lines+markers",
-                                                name="Dot Ball %", line=dict(color="#ffd166", width=2), yaxis="y2"))
-            apply_dark_theme(fig_bowl_form, title="Bowling Form — Economy & Dot% by Season", height=340,
-                             yaxis=dict(title="Economy"), yaxis2=dict(title="Dot %", overlaying="y", side="right"),
-                             xaxis=dict(dtick=1))
+            fig_bform = go.Figure()
+            fig_bform.add_trace(go.Scatter(
+                x=sw["Season"], y=sw["economy"], name="Economy",
+                mode="lines+markers",
+                line=dict(color="#00d4ff", width=2.5, shape="spline"),
+                marker=dict(size=7),
+                hovertemplate="Season %{x}<br>Eco: %{y:.2f}<extra></extra>",
+            ))
+            fig_bform.add_trace(go.Scatter(
+                x=sw["Season"], y=sw["dot_pct"], name="Dot %",
+                mode="lines+markers",
+                line=dict(color="#f5a623", width=2.5, shape="spline"),
+                marker=dict(size=7),
+                yaxis="y2",
+                hovertemplate="Season %{x}<br>Dot%%: %{y:.1f}<extra></extra>",
+            ))
+            apply_dark_theme(fig_bform, height=320,
+                             title="Bowling Form — Economy & Dot Ball %",
+                             yaxis=dict(title="Economy"),
+                             yaxis2=dict(title="Dot %", overlaying="y", side="right", showgrid=False),
+                             xaxis=dict(dtick=1, showgrid=False),
+                             legend=dict(x=0.5, y=1.1, xanchor="center", orientation="h"))
 
             charts.append(html.Div([
-                html.Div(dcc.Graph(figure=fig_wkts, config={"displayModeBar": False}), className="glass-card"),
-                html.Div(dcc.Graph(figure=fig_bowl_form, config={"displayModeBar": False}), className="glass-card"),
-            ], className="chart-row two-col"))
+                _chart_wrap(fig_wkts, "glass-card"),
+                _chart_wrap(fig_bform, "glass-card"),
+            ], className="chart-row two-col reveal"))
 
-    # Dismissal Breakdown (only for batters/all-rounders)
+    # Phase + Dismissal row
+    phase_items = []
+
     if role in ("Batter", "All-rounder"):
         db = dismissal_breakdown(player, d)
         if not db.empty:
-            fig_dismiss = px.pie(db, names="kind", values="count", title="Dismissal Breakdown",
-                                 color_discrete_sequence=px.colors.qualitative.Set2, hole=0.4)
-            apply_dark_theme(fig_dismiss, height=340)
-        else:
-            fig_dismiss = go.Figure()
-            apply_dark_theme(fig_dismiss, title="Dismissal Breakdown", height=340)
-    else:
-        fig_dismiss = None
+            fig_dis = px.pie(
+                db, names="kind", values="count",
+                title="Dismissal Breakdown", hole=0.45,
+                color_discrete_sequence=["#f5a623","#00d4ff","#ff4757","#a855f7","#00ff87","#ff6b35"],
+            )
+            fig_dis.update_traces(
+                textfont=dict(size=11, color="white"),
+                hovertemplate="%{label}: %{value} (%{percent})<extra></extra>",
+            )
+            apply_dark_theme(fig_dis, height=320)
+            phase_items.append(_chart_wrap(fig_dis, "glass-card"))
 
-    # Phase Breakdown
-    if role in ("Batter", "All-rounder"):
         bp = player_phase_batting(player, d)
         if not bp.empty:
-            fig_bphase = px.bar(bp, x="phase", y="runs", title="Batting by Phase",
-                                color="phase", color_discrete_map=PHASE_COLORS, text="sr")
-            fig_bphase.update_traces(texttemplate="SR: %{text}", textposition="outside")
-            apply_dark_theme(fig_bphase, height=340, showlegend=False)
-        else:
-            fig_bphase = None
-    else:
-        fig_bphase = None
+            fig_bphase = px.bar(
+                bp, x="phase", y="runs", title="Batting by Phase",
+                color="phase",
+                color_discrete_map=PHASE_COLORS,
+                text="sr",
+            )
+            fig_bphase.update_traces(
+                texttemplate="SR: %{text:.0f}",
+                textposition="outside",
+                textfont=dict(color="rgba(255,255,255,0.55)", size=11),
+                marker_line_width=0,
+            )
+            apply_dark_theme(fig_bphase, height=320, showlegend=False)
+            phase_items.append(_chart_wrap(fig_bphase, "glass-card"))
 
     if role in ("Bowler", "All-rounder"):
         blp = player_phase_bowling(player, d)
         if not blp.empty:
-            fig_bowlphase = px.bar(blp, x="phase", y="economy", title="Economy by Phase",
-                                   color="phase", color_discrete_map=PHASE_COLORS, text="economy")
-            fig_bowlphase.update_traces(texttemplate="%{text}", textposition="outside")
-            apply_dark_theme(fig_bowlphase, height=340, showlegend=False)
-        else:
-            fig_bowlphase = None
-    else:
-        fig_bowlphase = None
+            fig_bowlphase = px.bar(
+                blp, x="phase", y="economy", title="Economy by Phase",
+                color="phase",
+                color_discrete_map=PHASE_COLORS,
+                text="economy",
+            )
+            fig_bowlphase.update_traces(
+                texttemplate="%{text:.2f}",
+                textposition="outside",
+                textfont=dict(color="rgba(255,255,255,0.55)", size=11),
+                marker_line_width=0,
+            )
+            apply_dark_theme(fig_bowlphase, height=320, showlegend=False)
+            phase_items.append(_chart_wrap(fig_bowlphase, "glass-card"))
 
-    # Add phase/dismissal row
-    phase_row_items = []
-    if fig_dismiss:
-        phase_row_items.append(html.Div(dcc.Graph(figure=fig_dismiss, config={"displayModeBar": False}), className="glass-card"))
-    if fig_bphase:
-        phase_row_items.append(html.Div(dcc.Graph(figure=fig_bphase, config={"displayModeBar": False}), className="glass-card"))
-    if fig_bowlphase:
-        phase_row_items.append(html.Div(dcc.Graph(figure=fig_bowlphase, config={"displayModeBar": False}), className="glass-card"))
+    if phase_items:
+        ncols = len(phase_items)
+        col_class = {1: "full-width", 2: "two-col", 3: "three-col"}.get(ncols, "two-col")
+        charts.append(html.Div(phase_items, className=f"chart-row {col_class} reveal"))
 
-    if phase_row_items:
-        ncols = len(phase_row_items)
-        col_class = "two-col" if ncols == 2 else ("three-col" if ncols >= 3 else "full-width")
-        charts.append(html.Div(phase_row_items, className=f"chart-row {col_class}"))
+    # Insight
+    if role in ("Batter", "All-rounder") and bat.get("runs", 0) >= 500:
+        sr_val = bat.get("sr", 0)
+        avg_val = bat.get("average", 0)
+        sixes   = bat.get("sixes", 0)
+        charts.append(insight_card(
+            "BATTER PROFILE",
+            f"{player} has scored {bat['runs']:,} runs at an average of {avg_val} "
+            f"and a strike rate of {sr_val}, hitting {sixes} sixes in IPL history.",
+        ))
+    elif role in ("Bowler", "All-rounder") and bowl.get("wickets", 0) >= 20:
+        eco = bowl.get("economy", 0)
+        charts.append(insight_card(
+            "BOWLER PROFILE",
+            f"{player} has taken {bowl['wickets']} wickets at an economy of {eco} "
+            f"with a dot ball percentage of {bowl.get('dot_pct', 0)}%.",
+        ))
 
-    return kpi_card, html.Div(charts)
+    return profile, html.Div(charts)

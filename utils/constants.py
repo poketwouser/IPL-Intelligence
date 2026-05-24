@@ -72,19 +72,53 @@ def team_color(name, fallback="#888888"):
     return fallback
 
 
-# ─── Plotly Layout Template ───────────────────────────────────────────────────
+# ─── Premium Plotly Template ──────────────────────────────────────────────────
 PLOTLY_TEMPLATE = dict(
-    plot_bgcolor=THEME["bg_dark"],
-    paper_bgcolor=THEME["bg_dark"],
-    font=dict(color="white", family="Inter, sans-serif"),
-    margin=dict(l=50, r=30, t=50, b=40),
-    xaxis=dict(showgrid=False),
-    yaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(
+        color="rgba(255,255,255,0.65)",
+        family="Space Grotesk, Inter, sans-serif",
+        size=12,
+    ),
+    margin=dict(l=44, r=22, t=44, b=36),
+    xaxis=dict(
+        showgrid=False,
+        linecolor="rgba(255,255,255,0.07)",
+        tickcolor="rgba(255,255,255,0.07)",
+        tickfont=dict(color="rgba(255,255,255,0.45)", size=11, family="JetBrains Mono, monospace"),
+        zeroline=False,
+    ),
+    yaxis=dict(
+        gridcolor="rgba(255,255,255,0.05)",
+        linecolor="rgba(255,255,255,0.07)",
+        tickcolor="rgba(255,255,255,0.07)",
+        tickfont=dict(color="rgba(255,255,255,0.45)", size=11, family="JetBrains Mono, monospace"),
+        zeroline=False,
+    ),
+    legend=dict(
+        bgcolor="rgba(0,0,0,0)",
+        bordercolor="rgba(255,255,255,0.07)",
+        font=dict(color="rgba(255,255,255,0.65)", size=11),
+    ),
+    title=dict(
+        font=dict(size=15, color="rgba(255,255,255,0.85)", family="Space Grotesk, sans-serif"),
+        x=0.02,
+        xanchor="left",
+    ),
+    colorway=["#f5a623", "#00d4ff", "#00ff87", "#a855f7", "#ff4757", "#ffd700", "#ff6b35", "#00b4d8"],
+    hovermode="x unified",
+    hoverlabel=dict(
+        bgcolor="rgba(6,12,22,0.96)",
+        bordercolor="rgba(255,255,255,0.08)",
+        font=dict(color="white", family="Space Grotesk, sans-serif", size=12),
+        namelength=-1,
+    ),
 )
 
 
 def apply_dark_theme(fig, **kwargs):
-    """Apply the standard dark theme to any Plotly figure."""
+    """Apply premium dark theme to any Plotly figure."""
     layout_args = {**PLOTLY_TEMPLATE, **kwargs}
     fig.update_layout(**layout_args)
     return fig
@@ -93,10 +127,11 @@ def apply_dark_theme(fig, **kwargs):
 # ─── Card Helper ──────────────────────────────────────────────────────────────
 def kpi_style():
     return {
-        "background": THEME["card_bg"],
-        "borderRadius": "12px",
-        "padding": "14px 16px",
+        "background": "rgba(8,14,24,0.72)",
+        "borderRadius": "14px",
+        "padding": "16px 18px",
         "textAlign": "center",
-        "border": "1px solid rgba(255,255,255,0.06)",
-        "minWidth": "140px",
+        "border": "1px solid rgba(255,255,255,0.07)",
+        "minWidth": "130px",
+        "backdropFilter": "blur(18px)",
     }
