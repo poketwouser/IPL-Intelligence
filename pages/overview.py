@@ -1,455 +1,490 @@
 """
-Overview Page — Cinematic IPL hero, live stats, player cards, premium charts.
+Overview — Cinematic homepage. Apple Sports × F1 aesthetic.
 """
 
 import dash
 from dash import html, dcc
 import plotly.graph_objects as go
-import plotly.express as px
 import pandas as pd
 import numpy as np
 
 from utils.data_loader import load_data
-from utils.constants import THEME, team_abbr, team_color, apply_dark_theme, REGION_COLORS
+from utils.constants import team_abbr, team_color, apply_dark_theme
 from utils.components import (
-    page_hero, featured_grid, featured_card,
     stat_card, player_card, player_card_grid,
-    chart_card, graph, rankings_list, ranking_row,
-    section_header, insight_card,
+    section_header, insight_card, featured_card,
+    ranking_row, rankings_list,
 )
 
 dash.register_page(__name__, path="/", name="Overview", order=0)
 
-DATA  = load_data()
-M     = DATA["matches"]
-D     = DATA["deliveries"]
-V     = DATA["venues"]
+DATA = load_data()
+M    = DATA["matches"]
+D    = DATA["deliveries"]
+V    = DATA["venues"]
 
 
-# ─── Compute static layout ────────────────────────────────────────────────────
-def compute_layout():
-    m, d, v = M.copy(), D.copy(), V.copy()
+def build():
+    m, d = M.copy(), D.copy()
 
-    # ── Global KPIs ──────────────────────────────────────────────────────────
-    total_matches  = len(m)
-    total_runs     = int(d["Total_Runs"].sum())
-    total_wickets  = int(d["Is_Wicket"].sum())
-    total_sixes    = int((d["Batsman_Runs"] == 6).sum())
-    unique_venues  = m["Venue"].nunique()
-    seasons_count  = m["Season"].nunique()
+    # ── Global KPIs ──────────────────────────────────────────────────
+    total_matches = len(m)
+    total_runs    = int(d["Total_Runs"].sum())
+    total_sixes   = int((d["Batsman_Runs"] == 6).sum())
+    seasons_count = m["Season"].nunique()
+    total_players = d["Batter"].nunique()
 
-    # Titles
-    if "Match_Type" in m.columns:
-        finals  = m[m["Match_Type"] == "Final"]
-    else:
-        finals  = pd.DataFrame()
-    titles_series = finals["Winner"].value_counts() if not finals.empty else pd.Series(dtype=int)
+    # ── Team/player maps ─────────────────────────────────────────────
+    bat_team = (d.groupby(["Batter","Batting_Team"]).size().reset_index(name="c")
+                .sort_values("c", ascending=False).drop_duplicates("Batter")
+                .set_index("Batter")["Batting_Team"].to_dict())
+    bowl_team = (d.groupby(["Bowler","Bowling_Team"]).size().reset_index(name="c")
+                 .sort_values("c", ascending=False).drop_duplicates("Bowler")
+                 .set_index("Bowler")["Bowling_Team"].to_dict())
 
-    # Best win%
-    wins   = m["Winner"].value_counts().rename_axis("Team").reset_index(name="Wins")
-    played = pd.concat([
-        m[["Team1"]].rename(columns={"Team1": "Team"}),
-        m[["Team2"]].rename(columns={"Team2": "Team"}),
-    ])["Team"].value_counts().rename_axis("Team").reset_index(name="Played")
-    tp = wins.merge(played, on="Team", how="right").fillna(0)
-    tp["Win_pct"] = np.where(tp["Played"] > 0, tp["Wins"] / tp["Played"] * 100, 0)
+    top_bat  = (d.groupby("Batter")["Batsman_Runs"].sum()
+                .reset_index().nlargest(10, "Batsman_Runs"))
+    top_bat["Team"] = top_bat["Batter"].map(bat_team).fillna("N/A")
 
-    # Top batters
-    bt_map  = (d.groupby(["Batter", "Batting_Team"]).size().reset_index(name="c")
-               .sort_values(["Batter","c"], ascending=[True,False])
-               .drop_duplicates("Batter").set_index("Batter")["Batting_Team"].to_dict())
-    bwl_map = (d.groupby(["Bowler", "Bowling_Team"]).size().reset_index(name="c")
-               .sort_values(["Bowler","c"], ascending=[True,False])
-               .drop_duplicates("Bowler").set_index("Bowler")["Bowling_Team"].to_dict())
-
-    top_bat  = d.groupby("Batter")["Batsman_Runs"].sum().reset_index().nlargest(10, "Batsman_Runs")
-    top_bat["Team"]  = top_bat["Batter"].map(bt_map).fillna("N/A")
-
-    top_bowl = (d[d["Is_Wicket"] == 1].groupby("Bowler").size()
+    valid_wkt_mask = (
+        (d["Is_Wicket"] == 1) &
+        d["Player_Dismissed"].notna() &
+        (~d["Dismissal_Kind"].isin(["Run Out","Retired Hurt","Retired Out","Obstructing The Field"]))
+    )
+    top_bowl = (d[valid_wkt_mask].groupby("Bowler").size()
                 .reset_index(name="Wickets").nlargest(10, "Wickets"))
-    top_bowl["Team"] = top_bowl["Bowler"].map(bwl_map).fillna("N/A")
+    top_bowl["Team"] = top_bowl["Bowler"].map(bowl_team).fillna("N/A")
 
-    # ── Hero section ─────────────────────────────────────────────────────────
-    hero = html.Div([
-        html.Div("🏆 IPL INTELLIGENCE PLATFORM", className="hero-eyebrow"),
-        html.H1([
-            "CRICKET",
-            html.Span(" DECODED", className="hero-title-accent"),
-        ], className="hero-title"),
-        html.P(
-            "17 seasons · 1000+ matches · 150,000+ deliveries — all distilled into one premium analytics experience.",
-            className="hero-sub",
-        ),
+    # ── Titles ───────────────────────────────────────────────────────
+    finals = m[m["Match_Type"] == "Final"] if "Match_Type" in m.columns else pd.DataFrame()
+    titles = finals["Winner"].value_counts() if not finals.empty else pd.Series(dtype=int)
+
+    # ── Season champion ───────────────────────────────────────────────
+    latest_season = int(m["Season"].max())
+    champ_match   = finals[finals["Season"] == latest_season] if not finals.empty else pd.DataFrame()
+    champion      = champ_match["Winner"].iloc[0] if not champ_match.empty else "N/A"
+    orange_cap    = top_bat.iloc[0]["Batter"] if not top_bat.empty else "N/A"
+    purple_cap    = top_bowl.iloc[0]["Bowler"] if not top_bowl.empty else "N/A"
+
+    # ═══════════════════════════════════════════════════════════════════
+    # CINEMATIC HERO
+    # ═══════════════════════════════════════════════════════════════════
+    hero = html.Section([
+        html.Div(className="home-hero-bg", children=[
+            html.Div(className="home-hero-grid"),
+            html.Div(className="home-hero-orb home-hero-orb-1"),
+            html.Div(className="home-hero-orb home-hero-orb-2"),
+            html.Div(className="home-hero-orb home-hero-orb-3"),
+        ]),
+
         html.Div([
+            html.Div("IPL · 2008 – 2024 · CRICKET INTELLIGENCE", className="home-hero-eyebrow"),
+
+            html.H1([
+                html.Span("CRICKET", className="line-1"),
+                html.Span("INTELLIGENCE", className="line-2"),
+            ], className="home-hero-title"),
+
+            html.P(
+                f"{seasons_count} seasons. {total_matches:,} matches. {int(total_runs/1e6):.1f}M runs. "
+                "Every delivery, every wicket, every moment — decoded.",
+                className="home-hero-sub",
+            ),
+
             html.Div([
-                html.Div(
-                    f"{total_matches:,}",
-                    className="hero-stat-val",
-                    **{"data-counter": str(total_matches), "data-duration": "2000"},
-                ),
-                html.Div("Matches", className="hero-stat-lbl"),
-            ], className="hero-stat-item"),
-            html.Div(className="hero-stat-sep"),
+                html.Div([
+                    html.Div([
+                        html.Span(className="stat-value",
+                                  **{"data-counter": str(total_matches),
+                                     "data-duration": "1600"}),
+                        html.Span("+", style={"color": "var(--gold)"}),
+                    ], className="hero-stat-val"),
+                    html.Div("Matches", className="hero-stat-lbl"),
+                ], className="hero-stat"),
+
+                html.Div([
+                    html.Div([
+                        html.Span(className="stat-value",
+                                  **{"data-counter": str(round(total_runs / 1e6, 1)),
+                                     "data-suffix": "M", "data-decimals": "1",
+                                     "data-duration": "1800"}),
+                    ], className="hero-stat-val"),
+                    html.Div("Runs Scored", className="hero-stat-lbl"),
+                ], className="hero-stat"),
+
+                html.Div([
+                    html.Div([
+                        html.Span(className="stat-value",
+                                  **{"data-counter": str(total_sixes),
+                                     "data-duration": "2000"}),
+                        html.Span("+", style={"color": "var(--gold)"}),
+                    ], className="hero-stat-val"),
+                    html.Div("Sixes Hit", className="hero-stat-lbl"),
+                ], className="hero-stat"),
+
+                html.Div([
+                    html.Div([
+                        html.Span(className="stat-value",
+                                  **{"data-counter": str(total_players),
+                                     "data-duration": "1400"}),
+                        html.Span("+", style={"color": "var(--gold)"}),
+                    ], className="hero-stat-val"),
+                    html.Div("Players", className="hero-stat-lbl"),
+                ], className="hero-stat"),
+            ], className="home-hero-stats"),
+
             html.Div([
-                html.Div(
-                    f"{total_runs // 1000}K",
-                    className="hero-stat-val",
-                    **{"data-counter": str(total_runs), "data-duration": "2400", "data-suffix": ""},
-                ),
-                html.Div("Total Runs", className="hero-stat-lbl"),
-            ], className="hero-stat-item"),
-            html.Div(className="hero-stat-sep"),
-            html.Div([
-                html.Div(
-                    f"{total_sixes:,}",
-                    className="hero-stat-val",
-                    **{"data-counter": str(total_sixes), "data-duration": "2200"},
-                ),
-                html.Div("Sixes Hit", className="hero-stat-lbl"),
-            ], className="hero-stat-item"),
-            html.Div(className="hero-stat-sep"),
-            html.Div([
-                html.Div(
-                    str(unique_venues),
-                    className="hero-stat-val",
-                    **{"data-counter": str(unique_venues), "data-duration": "1600"},
-                ),
-                html.Div("Venues", className="hero-stat-lbl"),
-            ], className="hero-stat-item"),
-        ], className="hero-stats-row"),
-        html.Div(["↓", html.Span("EXPLORE", style={"marginTop": "4px"})],
-                 className="scroll-cue"),
-    ], className="hero-section")
+                html.A("EXPLORE ANALYTICS →", href="/players",
+                       className="btn btn-primary"),
+                html.A("MATCH CENTER", href="/match-explorer",
+                       className="btn btn-ghost"),
+            ], className="home-hero-cta"),
+        ], className="home-hero-content"),
 
-    # ── Quick nav featured cards ──────────────────────────────────────────────
-    featured = html.Div([
-        html.Div("EXPLORE THE PLATFORM", style={
-            "fontFamily": "'JetBrains Mono', monospace",
-            "fontSize": "0.68rem",
-            "letterSpacing": "0.18em",
-            "color": "rgba(255,255,255,0.35)",
-            "textAlign": "center",
-            "textTransform": "uppercase",
-            "marginBottom": "20px",
-        }),
-        featured_grid(
-            featured_card("📋", "Match Explorer",
-                          "Cinematic scorecards, manhattan charts, worm graphs, and fall of wickets.",
-                          href="/match-explorer"),
-            featured_card("⚔️", "Head to Head",
-                          "Team rivalry deep-dives with season trends and margin analysis.",
-                          href="/head-to-head"),
-            featured_card("🏏", "Player Analysis",
-                          "Career stats, phase breakdowns, form trends, and dismissal charts.",
-                          href="/players"),
-            featured_card("🎯", "Player Matchup",
-                          "Batter vs Bowler confrontation — outcomes, phase SR, and over profiles.",
-                          href="/player-vs-player"),
-            featured_card("🛡️", "Team Analytics",
-                          "Titles, win rates, top scorers, and venue performance by franchise.",
-                          href="/teams"),
-            featured_card("🔬", "Analytics Lab",
-                          "Win probability curves, scoring patterns, and phase dominance by season.",
-                          href="/advanced"),
-        ),
-    ], className="reveal")
-
-    # ── Top player cards ──────────────────────────────────────────────────────
-    top5_bat  = top_bat.head(5)
-    top5_bowl = top_bowl.head(5)
-
-    bat_cards = []
-    for rank, (_, row) in enumerate(top5_bat.iterrows(), 1):
-        name  = row["Batter"]
-        team  = row["Team"]
-        runs  = int(row["Batsman_Runs"])
-        # secondary: innings
-        inn   = int(d[d["Batter"] == name]["Batter"].count())
-        bat_cards.append(player_card(
-            player_name=name, team=team,
-            primary_stat_val=f"{runs:,}", primary_stat_lbl="RUNS",
-            secondary_stat_val=inn, secondary_stat_lbl="INN",
-            rank=rank,
-        ))
-
-    bowl_cards = []
-    for rank, (_, row) in enumerate(top5_bowl.iterrows(), 1):
-        name  = row["Bowler"]
-        team  = row["Team"]
-        wkts  = int(row["Wickets"])
-        bowl_cards.append(player_card(
-            player_name=name, team=team,
-            primary_stat_val=wkts, primary_stat_lbl="WICKETS",
-            rank=rank,
-        ))
-
-    player_section = html.Div([
         html.Div([
-            section_header("🏏 Orange Cap Leaders", tag="Most Runs"),
-            player_card_grid(*bat_cards),
-        ], className="reveal"),
+            html.Div(className="scroll-arrow"),
+            html.Div("SCROLL", className="scroll-hint"),
+        ], className="home-hero-scroll"),
+
+    ], className="home-hero")
+
+    # ═══════════════════════════════════════════════════════════════════
+    # SEASON BANNER
+    # ═══════════════════════════════════════════════════════════════════
+    season_banner = html.Div([
+        html.Div(str(latest_season), className="season-banner-year"),
+        html.Div(className="season-banner-divider"),
         html.Div([
-            section_header("🎯 Purple Cap Leaders", tag="Most Wickets"),
-            player_card_grid(*bowl_cards),
-        ], className="reveal"),
+            html.Div(team_abbr(champion), className="season-banner-stat-val"),
+            html.Div("IPL Champion", className="season-banner-stat-lbl"),
+        ], className="season-banner-stat"),
+        html.Div(className="season-banner-divider"),
+        html.Div([
+            html.Div(orange_cap.split()[-1], className="season-banner-stat-val"),
+            html.Div("Orange Cap", className="season-banner-stat-lbl"),
+        ], className="season-banner-stat"),
+        html.Div(className="season-banner-divider"),
+        html.Div([
+            html.Div(purple_cap.split()[-1], className="season-banner-stat-val"),
+            html.Div("Purple Cap", className="season-banner-stat-lbl"),
+        ], className="season-banner-stat"),
+        html.Div(className="season-banner-divider"),
+        html.Div([
+            html.Div(str(seasons_count), className="season-banner-stat-val"),
+            html.Div("Seasons of Data", className="season-banner-stat-lbl"),
+        ], className="season-banner-stat"),
+    ], className="season-banner reveal")
+
+    # ═══════════════════════════════════════════════════════════════════
+    # FEATURED NAV CARDS
+    # ═══════════════════════════════════════════════════════════════════
+    nav_grid = html.Div([
+        featured_card("/match-explorer",   "📋", "MATCH CENTER",
+                      "Ball-by-Ball Cinema",
+                      "Worm charts, Manhattan, Fall of Wickets — every match dissected.",
+                      "#F5A623"),
+        featured_card("/head-to-head",     "⚔️",  "RIVALRY",
+                      "Head to Head",
+                      "Season arcs, margin distributions, top performers in every rivalry.",
+                      "#00D4FF"),
+        featured_card("/players",          "🏏", "PLAYER INTEL",
+                      "Player Analytics",
+                      "Form curves, phase analysis, dismissal patterns, career arcs.",
+                      "#00FF87"),
+        featured_card("/player-vs-player", "🎯", "MATCHUP ARENA",
+                      "Batter vs Bowler",
+                      "Outcome distributions, phase strike rates, over-by-over profiling.",
+                      "#7C3AED"),
+        featured_card("/teams",            "🛡️", "TEAMS",
+                      "Franchise Intelligence",
+                      "Trophy cabinets, season performance, venue dominance.",
+                      "#FF6B35"),
+        featured_card("/advanced",         "🔬", "ANALYTICS LAB",
+                      "Advanced Stats",
+                      "Win probability curves, phase dominance, scoring evolution.",
+                      "#FF1744"),
+    ], className="featured-grid")
+
+    # ═══════════════════════════════════════════════════════════════════
+    # GLOBAL KPI STRIP
+    # ═══════════════════════════════════════════════════════════════════
+    kpi_strip = html.Div([
+        stat_card(str(total_matches), "Matches",   "🏟", "#F5A623", counter=True, duration=1600),
+        stat_card(f"{total_runs:,}",  "Total Runs","🏏", "#00D4FF", counter=True, duration=1800),
+        stat_card(str(total_sixes),   "Sixes",     "💥", "#00FF87", counter=True, duration=2000),
+        stat_card(str(seasons_count), "Seasons",   "📅", "#7C3AED"),
+        stat_card(str(m["Venue"].nunique()), "Venues", "🗺", "#FF6B35"),
+        stat_card(str(titles.max() if not titles.empty else 0),
+                  "Most Titles",  "🏆", "#FFD700"),
+    ], className="stat-grid stagger-in", style={"marginBottom": "var(--s8)"})
+
+    # ═══════════════════════════════════════════════════════════════════
+    # PLAYER CARDS — Top 5 Orange Cap
+    # ═══════════════════════════════════════════════════════════════════
+    bat_cards = player_card_grid([
+        player_card(
+            row["Batter"], row["Team"],
+            f"{row['Batsman_Runs']:,}", "RUNS",
+            rank=i + 1,
+        )
+        for i, (_, row) in enumerate(top_bat.head(5).iterrows())
     ])
 
-    # ── Rankings lists ────────────────────────────────────────────────────────
-    max_runs  = int(top_bat["Batsman_Runs"].max()) if not top_bat.empty else 1
-    max_wkts  = int(top_bowl["Wickets"].max())     if not top_bowl.empty else 1
+    bowl_cards = player_card_grid([
+        player_card(
+            row["Bowler"], row["Team"],
+            str(row["Wickets"]), "WKTs",
+            rank=i + 1,
+        )
+        for i, (_, row) in enumerate(top_bowl.head(5).iterrows())
+    ])
 
-    bat_rows  = [ranking_row(i+1, row["Batter"],
-                              int(row["Batsman_Runs"]), max_runs, "",
-                              team_color(row["Team"]))
-                 for i, (_, row) in enumerate(top_bat.head(10).iterrows())]
+    # ═══════════════════════════════════════════════════════════════════
+    # CHARTS
+    # ═══════════════════════════════════════════════════════════════════
 
-    bowl_rows = [ranking_row(i+1, row["Bowler"],
-                              int(row["Wickets"]), max_wkts, "",
-                              team_color(row["Team"]))
-                 for i, (_, row) in enumerate(top_bowl.head(10).iterrows())]
+    # Season trend
+    season_wins = (m.groupby(["Season","Winner"]).size().unstack(fill_value=0)
+                   .sum(axis=1).reset_index(name="Matches"))
+    season_wins["Season"] = season_wins["Season"].astype(int)
 
-    rankings_section = html.Div([
-        html.Div([
-            section_header("All-Time Run Scorers", tag="Top 10"),
-            rankings_list(*bat_rows),
-        ], className="glass-card chart-card"),
-        html.Div([
-            section_header("All-Time Wicket Takers", tag="Top 10"),
-            rankings_list(*bowl_rows),
-        ], className="glass-card chart-card"),
-    ], className="chart-row two-col reveal")
+    sixes_season = (d[d["Batsman_Runs"] == 6].groupby("Season").size().reset_index(name="Sixes"))
+    sixes_season["Season"] = sixes_season["Season"].astype(int)
 
-    # ── Season trend chart ────────────────────────────────────────────────────
-    match_stats   = d.groupby(["Match_Id","Season"])[["Total_Runs","Is_Wicket"]].sum().reset_index()
-    season_stats  = match_stats.groupby("Season")[["Total_Runs","Is_Wicket"]].mean().reset_index().sort_values("Season")
-
-    fig_trend = go.Figure()
-    fig_trend.add_trace(go.Scatter(
-        x=season_stats["Season"], y=season_stats["Total_Runs"],
-        name="Avg Runs/Match", mode="lines+markers",
-        line=dict(color="#00d4ff", width=3, shape="spline"),
-        marker=dict(size=7, color="#00d4ff",
-                    line=dict(width=1.5, color="rgba(0,212,255,0.3)")),
-        fill="tozeroy", fillcolor="rgba(0,212,255,0.05)",
-        hovertemplate="Season %{x}<br>Avg Runs: %{y:.1f}<extra></extra>",
+    fig_season = go.Figure()
+    fig_season.add_trace(go.Bar(
+        x=season_wins["Season"], y=season_wins["Matches"],
+        name="Matches",
+        marker=dict(color="rgba(245,166,35,0.5)", line=dict(width=0)),
+        hovertemplate="Season %{x}<br>Matches: %{y}<extra></extra>",
     ))
-    fig_trend.add_trace(go.Scatter(
-        x=season_stats["Season"], y=season_stats["Is_Wicket"],
-        name="Avg Wickets/Match", mode="lines+markers",
-        line=dict(color="#ff4757", width=3, shape="spline"),
-        marker=dict(size=7, color="#ff4757"),
-        yaxis="y2",
-        hovertemplate="Season %{x}<br>Avg Wkts: %{y:.1f}<extra></extra>",
+    fig_season.add_trace(go.Scatter(
+        x=sixes_season["Season"], y=sixes_season["Sixes"],
+        name="Sixes", yaxis="y2", mode="lines+markers",
+        line=dict(color="#00FF87", width=2.5, shape="spline"),
+        marker=dict(size=6),
+        hovertemplate="Season %{x}<br>Sixes: %{y}<extra></extra>",
     ))
-    apply_dark_theme(fig_trend,
-                     height=340,
-                     title="Season Trend — Avg Runs vs Wickets per Match",
-                     yaxis=dict(title="Avg Runs", gridcolor="rgba(255,255,255,0.04)"),
-                     yaxis2=dict(title="Avg Wickets", overlaying="y", side="right", showgrid=False),
-                     xaxis=dict(tickmode="linear", showgrid=False),
-                     legend=dict(x=0.5, y=1.1, xanchor="center", orientation="h"))
+    apply_dark_theme(fig_season, title="Season Overview — Matches & Sixes", height=320,
+                     yaxis=dict(title="Matches", gridcolor="rgba(255,255,255,0.04)"),
+                     yaxis2=dict(title="Sixes", overlaying="y", side="right", showgrid=False),
+                     xaxis=dict(dtick=1, showgrid=False),
+                     legend=dict(x=0.5, y=1.1, xanchor="center", orientation="h"),
+                     barmode="group")
 
-    # ── Boundary & Dot% ───────────────────────────────────────────────────────
-    total_b   = d.groupby("Season").size().reset_index(name="TotalBalls")
-    boundaries = d[d["Batsman_Runs"].isin([4,6])].groupby("Season").size().reset_index(name="Boundaries")
-    dots       = d[d["Batsman_Runs"] == 0].groupby("Season").size().reset_index(name="DotBalls")
-    br = boundaries.merge(total_b, on="Season", how="right").fillna(0)
-    br["Boundary%"] = br["Boundaries"] / br["TotalBalls"] * 100
-    br = br[(br["Season"] >= 2008) & (br["Season"] <= 2024)].sort_values("Season")
-    dr = dots.merge(total_b, on="Season", how="right").fillna(0)
-    dr["Dot%"] = dr["DotBalls"] / dr["TotalBalls"] * 100
-    dr = dr[(dr["Season"] >= 2008) & (dr["Season"] <= 2024)].sort_values("Season")
+    # Toss decision split
+    toss_dec = m["Toss_Decision"].value_counts().reset_index()
+    toss_dec.columns = ["Decision", "Count"]
+    fig_toss = go.Figure(go.Pie(
+        labels=toss_dec["Decision"],
+        values=toss_dec["Count"],
+        hole=0.6,
+        marker=dict(colors=["#F5A623", "#00D4FF"], line=dict(color="rgba(0,0,0,0.5)", width=2)),
+        textfont=dict(color="rgba(255,255,255,0.75)", size=12),
+        hovertemplate="%{label}: %{value} (%{percent})<extra></extra>",
+    ))
+    apply_dark_theme(fig_toss, title="Toss Decision Split", height=280, showlegend=True,
+                     legend=dict(x=0.5, y=-0.1, xanchor="center", orientation="h"))
 
-    fig_boundary = go.Figure(go.Scatter(
-        x=br["Season"], y=br["Boundary%"], mode="lines+markers",
-        line=dict(color="#f5a623", width=3, shape="spline"),
-        marker=dict(size=8, color="#f5a623", line=dict(width=1.5, color="rgba(245,166,35,0.3)")),
-        fill="tozeroy", fillcolor="rgba(245,166,35,0.07)",
-        hovertemplate="Season %{x}<br>Boundary%%: %{y:.2f}%%<extra></extra>"))
-    apply_dark_theme(fig_boundary, height=310, title="Season-wise Boundary %",
-                     yaxis=dict(title="Boundary %", gridcolor="rgba(255,255,255,0.06)"),
-                     xaxis=dict(title="Season", tickmode="linear", dtick=2, showgrid=False),
+    # Win by type
+    result_counts = m["Result"].value_counts().head(4).reset_index()
+    result_counts.columns = ["Result", "Count"]
+    fig_result = go.Figure(go.Bar(
+        x=result_counts["Count"], y=result_counts["Result"],
+        orientation="h",
+        marker=dict(color=["#F5A623","#00D4FF","#00FF87","#FF1744"][:len(result_counts)],
+                    opacity=0.8, line=dict(width=0)),
+        hovertemplate="%{y}: %{x}<extra></extra>",
+    ))
+    apply_dark_theme(fig_result, title="Match Result Types", height=280, showlegend=False,
+                     xaxis=dict(showgrid=False), yaxis=dict(showgrid=False))
+
+    # Boundary % by season
+    d_copy = d.copy()
+    d_copy["boundary"] = d_copy["Batsman_Runs"].isin([4, 6])
+    bnd = d_copy.groupby("Season").agg(
+        total=("Batsman_Runs", "count"),
+        boundaries=("boundary", "sum"),
+    ).reset_index()
+    bnd["pct"] = round(bnd["boundaries"] / bnd["total"] * 100, 2)
+    bnd["Season"] = bnd["Season"].astype(int)
+
+    fig_bnd = go.Figure(go.Scatter(
+        x=bnd["Season"], y=bnd["pct"],
+        mode="lines+markers",
+        line=dict(color="#F5A623", width=3, shape="spline"),
+        fill="tozeroy", fillcolor="rgba(245,166,35,0.06)",
+        marker=dict(size=7, color="#F5A623", line=dict(width=1.5, color="rgba(245,166,35,0.3)")),
+        hovertemplate="Season %{x}<br>Boundary%%: %{y:.2f}%%<extra></extra>",
+    ))
+    apply_dark_theme(fig_bnd, title="Boundary % by Season", height=280,
+                     xaxis=dict(dtick=1, showgrid=False),
+                     yaxis=dict(title="%", gridcolor="rgba(255,255,255,0.04)"),
                      showlegend=False)
 
-    fig_dot = go.Figure(go.Scatter(
-        x=dr["Season"], y=dr["Dot%"], mode="lines+markers",
-        line=dict(color="#a855f7", width=3, shape="spline"),
-        marker=dict(size=8, color="#a855f7", line=dict(width=1.5, color="rgba(168,85,247,0.3)")),
-        fill="tozeroy", fillcolor="rgba(168,85,247,0.07)",
-        hovertemplate="Season %{x}<br>Dot%%: %{y:.2f}%%<extra></extra>"))
-    apply_dark_theme(fig_dot, height=310, title="Season-wise Dot Ball %",
-                     yaxis=dict(title="Dot %", gridcolor="rgba(255,255,255,0.06)"),
-                     xaxis=dict(title="Season", tickmode="linear", dtick=2, showgrid=False),
-                     showlegend=False)
+    # Titles bar
+    if not titles.empty:
+        tc = titles.reset_index()
+        tc.columns = ["Team", "Titles"]
+        tc = tc.sort_values("Titles", ascending=True)
+        tc["color"] = tc["Team"].apply(lambda t: team_color(t) or "#F5A623")
 
-    # ── Heatmaps ─────────────────────────────────────────────────────────────
-    ball_counts = d.groupby(["Season","Over"]).size().rename("Balls").reset_index()
-    runs_sum    = d.groupby(["Season","Over"])["Batsman_Runs"].sum().rename("Runs").reset_index()
-    wkts_sum    = d.groupby(["Season","Over"])["Is_Wicket"].sum().rename("Wickets").reset_index()
-
-    heat  = runs_sum.merge(ball_counts, on=["Season","Over"], how="left")
-    heat["RPO"] = heat["Runs"] / heat["Balls"] * 6
-    heat2 = wkts_sum.merge(ball_counts, on=["Season","Over"], how="left")
-    heat2["WPO"] = heat2["Wickets"] / heat2["Balls"] * 6
-
-    pivot_runs = heat.pivot(index="Season", columns="Over", values="RPO").sort_index().fillna(0)
-    pivot_wk   = heat2.pivot(index="Season", columns="Over", values="WPO").sort_index().fillna(0)
-    pivot_runs.columns = [str(i+1) for i in pivot_runs.columns]
-    pivot_wk.columns   = [str(i+1) for i in pivot_wk.columns]
-
-    fig_bat_heat = px.imshow(pivot_runs, color_continuous_scale="YlOrRd",
-                             labels=dict(x="Over", y="Season", color="RPO"), aspect="auto",
-                             title="Batting Intensity — Avg Runs per Over")
-    apply_dark_theme(fig_bat_heat, height=360)
-    fig_bat_heat.update_coloraxes(colorbar=dict(
-        tickfont=dict(color="rgba(255,255,255,0.45)", size=10, family="JetBrains Mono"),
-        title=dict(font=dict(color="rgba(255,255,255,0.5)", size=10)),
-    ))
-
-    fig_bowl_heat = px.imshow(pivot_wk, color_continuous_scale="PuBuGn",
-                              labels=dict(x="Over", y="Season", color="WPO"), aspect="auto",
-                              title="Bowling Intensity — Avg Wickets per Over")
-    apply_dark_theme(fig_bowl_heat, height=360)
-
-    # ── POTM chart ────────────────────────────────────────────────────────────
-    potm_col = "Player_Of_Match" if "Player_Of_Match" in m.columns else None
-    if potm_col:
-        potm_df = m[potm_col].value_counts().head(10).reset_index()
-        potm_df.columns = ["Player", "Awards"]
-        potm_df["Team"]  = potm_df["Player"].map(bt_map).fillna("N/A")
-        potm_df["Color"] = potm_df["Team"].apply(team_color).fillna("#888")
-        fig_potm = go.Figure(go.Bar(
-            x=potm_df["Awards"][::-1],
-            y=(potm_df["Player"] + " · " + potm_df["Team"].apply(team_abbr))[::-1],
+        fig_titles = go.Figure(go.Bar(
+            x=tc["Titles"], y=tc.apply(lambda r: team_abbr(r["Team"]), axis=1),
             orientation="h",
-            marker=dict(color=potm_df["Color"][::-1].tolist(),
-                        line=dict(width=0)),
-            text=potm_df["Awards"][::-1],
-            textposition="outside",
+            marker=dict(color=tc["color"].tolist(), opacity=0.85, line=dict(width=0)),
+            text=tc["Titles"], textposition="outside",
             textfont=dict(color="rgba(255,255,255,0.5)", size=11),
-            hovertemplate="%{y}<br>Awards: %{x}<extra></extra>",
+            hovertemplate="%{y}: %{x} titles<extra></extra>",
         ))
-        apply_dark_theme(fig_potm, height=380, title="Player of the Match Leaders",
-                         xaxis=dict(showgrid=False),
-                         margin=dict(l=200, r=60, t=44, b=36))
+        apply_dark_theme(fig_titles, title="IPL Title Count", height=300,
+                         xaxis=dict(showgrid=False, dtick=1),
+                         margin=dict(l=72, r=60, t=44, b=36))
     else:
-        fig_potm = go.Figure()
+        fig_titles = go.Figure()
+        apply_dark_theme(fig_titles, title="IPL Title Count", height=300)
 
-    # ── Venue map ─────────────────────────────────────────────────────────────
-    v_counts = m["Venue"].value_counts().reset_index()
-    v_counts.columns = ["Venue", "Matches"]
-    vmap = v_counts.merge(v, on="Venue", how="left") if not v.empty else v_counts
-    if "lat" not in vmap.columns:
-        vmap["lat"] = np.nan; vmap["lon"] = np.nan; vmap["Home"] = "N/A"
+    # Top batters ranking chart
+    top10_bat = top_bat.head(10).sort_values("Batsman_Runs")
+    top10_bat["color"] = top10_bat["Team"].apply(team_color)
+    top10_bat["abbr"]  = top10_bat.apply(
+        lambda r: f"{r['Batter'].split()[-1]} · {team_abbr(r['Team'])}", axis=1)
 
-    fig_map = go.Figure()
-    for _, row in vmap.dropna(subset=["lat","lon"]).iterrows():
-        home = row.get("Home","N/A")
-        clr  = REGION_COLORS.get(home, team_color(home)) or "#f5a623"
-        fig_map.add_trace(go.Scattergeo(
-            lon=[row["lon"]], lat=[row["lat"]],
-            text=f"{row['Venue']}<br>{int(row['Matches'])} matches<br>Home: {home}",
-            marker=dict(size=max(6, row["Matches"]**0.5 * 2.2),
-                        color=clr, line=dict(width=0.7, color="white"), opacity=0.88),
-            hoverinfo="text", showlegend=False,
-        ))
-    apply_dark_theme(fig_map, height=460, title="IPL Venue Map", showlegend=False,
-                     geo=dict(scope="asia", projection_type="mercator",
-                              center=dict(lat=22, lon=78),
-                              lataxis=dict(range=[5,37]), lonaxis=dict(range=[64,92]),
-                              showland=True, landcolor="rgba(15,26,42,0.9)",
-                              showocean=True, oceancolor="rgba(5,12,22,0.9)",
-                              showcountries=True,
-                              countrycolor="rgba(255,255,255,0.2)",
-                              showframe=False, bgcolor="rgba(0,0,0,0)"))
+    fig_topbat = go.Figure(go.Bar(
+        x=top10_bat["Batsman_Runs"], y=top10_bat["abbr"],
+        orientation="h",
+        marker=dict(color=top10_bat["color"].tolist(), opacity=0.82, line=dict(width=0)),
+        text=top10_bat["Batsman_Runs"].apply(lambda v: f"{v:,}"),
+        textposition="outside",
+        textfont=dict(color="rgba(255,255,255,0.45)", size=10),
+        hovertemplate="%{y}: %{x:,} runs<extra></extra>",
+    ))
+    apply_dark_theme(fig_topbat, title="All-Time Top Run Scorers", height=360,
+                     xaxis=dict(showgrid=False),
+                     margin=dict(l=160, r=70, t=44, b=36))
 
-    # ── AI Insight cards ──────────────────────────────────────────────────────
-    avg_run  = round(total_runs / total_matches, 1) if total_matches else 0
-    avg_wkt  = round(total_wickets / total_matches, 1) if total_matches else 0
-    top_team = tp.sort_values("Win_pct", ascending=False).iloc[0] if not tp.empty else None
+    top10_bowl = top_bowl.head(10).sort_values("Wickets")
+    top10_bowl["color"] = top10_bowl["Team"].apply(team_color)
+    top10_bowl["abbr"]  = top10_bowl.apply(
+        lambda r: f"{r['Bowler'].split()[-1]} · {team_abbr(r['Team'])}", axis=1)
 
-    insights_row = html.Div([
-        insight_card("DATA POINT",
-                     f"IPL averages {avg_run} runs per match — with the death overs accounting "
-                     f"for the highest boundary rates across all seasons."),
-        insight_card("DOMINANCE",
-                     f"{team_abbr(top_team['Team']) if top_team is not None else 'MI'} leads all franchises "
-                     f"with the highest overall win percentage across IPL history."),
-        insight_card("IMPACT",
-                     f"Powerplay wickets have become increasingly decisive — teams losing 3+ in PP "
-                     f"win only ~22% of matches across the dataset."),
-    ], style={"display": "grid", "gridTemplateColumns": "repeat(auto-fill, minmax(280px,1fr))",
-              "gap": "16px", "marginBottom": "28px"})
+    fig_topbowl = go.Figure(go.Bar(
+        x=top10_bowl["Wickets"], y=top10_bowl["abbr"],
+        orientation="h",
+        marker=dict(color=top10_bowl["color"].tolist(), opacity=0.82, line=dict(width=0)),
+        text=top10_bowl["Wickets"],
+        textposition="outside",
+        textfont=dict(color="rgba(255,255,255,0.45)", size=10),
+        hovertemplate="%{y}: %{x} wickets<extra></extra>",
+    ))
+    apply_dark_theme(fig_topbowl, title="All-Time Top Wicket Takers", height=360,
+                     xaxis=dict(showgrid=False),
+                     margin=dict(l=160, r=70, t=44, b=36))
 
-    # ── Final layout ─────────────────────────────────────────────────────────
+    def _chart(fig):
+        return html.Div(
+            dcc.Graph(figure=fig, config={"displayModeBar": False}),
+            className="glass-card chart-card",
+        )
+
+    # ── Rankings lists ────────────────────────────────────────────────
+    max_runs = int(top_bat.iloc[0]["Batsman_Runs"]) if not top_bat.empty else 1
+    max_wkts = int(top_bowl.iloc[0]["Wickets"])     if not top_bowl.empty else 1
+
+    bat_rankings = rankings_list(*[
+        ranking_row(i+1, row["Batter"], int(row["Batsman_Runs"]),
+                    max_runs, " runs", team_color(row["Team"]) or "#F5A623")
+        for i, (_, row) in enumerate(top_bat.head(8).iterrows())
+    ])
+
+    bowl_rankings = rankings_list(*[
+        ranking_row(i+1, row["Bowler"], int(row["Wickets"]),
+                    max_wkts, " wkts", team_color(row["Team"]) or "#00D4FF")
+        for i, (_, row) in enumerate(top_bowl.head(8).iterrows())
+    ])
+
+    # ═══════════════════════════════════════════════════════════════════
+    # ASSEMBLE PAGE
+    # ═══════════════════════════════════════════════════════════════════
     return html.Div([
-        # Hero
+
+        # 1 · Cinematic hero (full-width, breaks out of page-content padding)
         hero,
 
-        # Featured nav cards
-        featured,
+        # 2 · Season banner
+        season_banner,
 
-        # Stat grid
+        # 3 · Featured nav grid
+        section_header("EXPLORE", "ALL MODULES"),
+        nav_grid,
+
+        # 4 · Global KPIs
+        section_header("PLATFORM STATS", f"{total_matches:,} MATCHES ANALYSED"),
+        kpi_strip,
+
+        # 5 · Top Player Cards
+        section_header("ORANGE CAP — ALL TIME", "RUNS LEADERS"),
+        bat_cards,
+        html.Div(style={"height": "var(--s6)"}),
+
+        section_header("PURPLE CAP — ALL TIME", "WICKETS LEADERS"),
+        bowl_cards,
+        html.Div(style={"height": "var(--s8)"}),
+
+        # 6 · Charts
+        section_header("SEASON OVERVIEW", "2008 – 2024"),
         html.Div([
-            stat_card(f"{total_matches:,}", "Total Matches",   "🏟️", "#f5a623", counter=True),
-            stat_card(f"{total_runs:,}",    "Total Runs",      "🏏", "#00d4ff", counter=True),
-            stat_card(f"{total_wickets:,}", "Total Wickets",   "🎯", "#ff4757", counter=True),
-            stat_card(f"{total_sixes:,}",   "Sixes Hit",       "💥", "#00ff87", counter=True),
-            stat_card(str(unique_venues),   "Venues",          "📍", "#a855f7", counter=True),
-            stat_card(str(seasons_count),   "IPL Seasons",     "📅", "#ffd700", counter=True),
-        ], className="stat-grid stagger-in"),
+            _chart(fig_season),
+        ], className="reveal mb-lg"),
 
-        # Player card sections
-        player_section,
-
-        # Rankings
-        rankings_section,
-
-        # Season trend
         html.Div([
-            dcc.Graph(figure=fig_trend, config={"displayModeBar": False})
-        ], className="glass-card chart-card reveal mb-3",
-           style={"marginBottom": "18px"}),
+            _chart(fig_toss),
+            _chart(fig_result),
+            _chart(fig_bnd),
+        ], className="chart-row three-col reveal mb-lg"),
 
-        # Heatmaps
-        html.Div([
-            html.Div(dcc.Graph(figure=fig_bat_heat, config={"displayModeBar": False}),
-                     className="glass-card"),
-            html.Div(dcc.Graph(figure=fig_bowl_heat, config={"displayModeBar": False}),
-                     className="glass-card"),
-        ], className="chart-row two-col reveal"),
+        # 7 · Titles
+        section_header("TITLE RACE", "IPL CHAMPIONSHIPS"),
+        html.Div(_chart(fig_titles), className="reveal mb-lg"),
 
-        # Boundary% / Dot%
+        # 8 · Top 10 charts + rankings
+        section_header("RECORDS", "ALL-TIME LEADERS"),
         html.Div([
-            html.Div(dcc.Graph(figure=fig_boundary, config={"displayModeBar": False}),
-                     className="glass-card"),
-            html.Div(dcc.Graph(figure=fig_dot, config={"displayModeBar": False}),
-                     className="glass-card"),
-        ], className="chart-row two-col reveal"),
+            html.Div([
+                section_header("TOP RUN SCORERS", "BATTING"),
+                bat_rankings,
+            ], className="glass-card reveal"),
+            html.Div([
+                section_header("TOP WICKET TAKERS", "BOWLING"),
+                bowl_rankings,
+            ], className="glass-card reveal"),
+        ], className="chart-row two-col mb-lg"),
 
-        # POTM
         html.Div([
-            dcc.Graph(figure=fig_potm, config={"displayModeBar": False})
-        ], className="glass-card chart-card reveal", style={"marginBottom": "18px"}),
+            _chart(fig_topbat),
+            _chart(fig_topbowl),
+        ], className="chart-row two-col reveal mb-lg"),
 
-        # Venue map
+        # 9 · Insights
         html.Div([
-            dcc.Graph(figure=fig_map, config={"displayModeBar": False})
-        ], className="glass-card chart-card reveal", style={"marginBottom": "28px"}),
+            insight_card("PLATFORM",
+                         f"IPL Intelligence covers all {seasons_count} seasons from 2008 to 2024 — "
+                         f"{total_matches:,} matches, {int(total_runs/1e6):.1f}M runs, "
+                         f"and {total_sixes:,} sixes across {m['Venue'].nunique()} venues."),
+            insight_card("DOMINANCE",
+                         f"Mumbai Indians and Chennai Super Kings are the benchmark franchises — "
+                         f"holding the most IPL titles and consistent top-3 finishes across eras."),
+            insight_card("EVOLUTION",
+                         "Death-over batting has fundamentally changed since 2016 — "
+                         "run rates and six frequency in overs 16–20 have climbed every season."),
+        ], style={
+            "display": "grid",
+            "gridTemplateColumns": "repeat(auto-fill, minmax(280px, 1fr))",
+            "gap": "var(--s5)",
+            "marginBottom": "var(--s8)",
+        }),
 
-        # Insights
-        html.Div([
-            html.Div("⚡ PLATFORM INSIGHTS", style={
-                "fontFamily": "'JetBrains Mono', monospace",
-                "fontSize": "0.68rem",
-                "letterSpacing": "0.18em",
-                "color": "rgba(255,255,255,0.35)",
-                "textTransform": "uppercase",
-                "marginBottom": "14px",
-            }),
-            insights_row,
-        ], className="reveal"),
     ])
 
 
-layout = compute_layout()
+layout = build()

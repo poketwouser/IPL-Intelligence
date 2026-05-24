@@ -1,56 +1,58 @@
 """
-IPL Intelligence Platform — Production Application
-====================================================
-Cinematic sports analytics experience. Dash multi-page with floating navbar,
-particle canvas, custom cursor, and premium dark design system.
+IPL Intelligence Platform — v4.0
+Cinema-grade cricket analytics. GSAP + Lenis smooth scroll. Apple Sports aesthetic.
 """
 
 import dash
 from dash import html, dcc
-import dash_bootstrap_components as dbc
 from flask_caching import Cache
 
 from utils.data_loader import load_data
 from utils.constants import THEME
 
-# ─── Pre-load Data ─────────────────────────────────────────────────────────────
 DATA = load_data()
 
-# ─── App Init ──────────────────────────────────────────────────────────────────
 app = dash.Dash(
     __name__,
     use_pages=True,
     external_stylesheets=[
-        "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Orbitron:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap",
+        "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap",
+    ],
+    external_scripts=[
+        {"src": "https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"},
+        {"src": "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"},
+        {"src": "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"},
     ],
     suppress_callback_exceptions=True,
     title="IPL Intel — Cricket Intelligence Platform",
     meta_tags=[
         {"name": "viewport", "content": "width=device-width, initial-scale=1"},
-        {"name": "theme-color", "content": "#020509"},
+        {"name": "theme-color", "content": "#010205"},
         {"name": "description", "content": "Premium IPL Analytics Dashboard — 2008 to 2024"},
     ],
 )
 
 server = app.server
-cache  = Cache(server, config={"CACHE_TYPE": "SimpleCache", "CACHE_DEFAULT_TIMEOUT": 600})
+cache = Cache(server, config={"CACHE_TYPE": "SimpleCache", "CACHE_DEFAULT_TIMEOUT": 600})
 
-# ─── Navigation Config ─────────────────────────────────────────────────────────
 NAV_ITEMS = [
-    {"href": "/",                 "icon": "🏟️", "label": "Overview"},
-    {"href": "/match-explorer",   "icon": "📋", "label": "Matches"},
-    {"href": "/head-to-head",     "icon": "⚔️", "label": "Head to Head"},
-    {"href": "/players",          "icon": "🏏", "label": "Players"},
-    {"href": "/player-vs-player", "icon": "🎯", "label": "Matchup"},
-    {"href": "/teams",            "icon": "🛡️", "label": "Teams"},
-    {"href": "/advanced",         "icon": "🔬", "label": "Analytics Lab"},
+    {"href": "/",                 "label": "Overview",      "icon": "HOME"},
+    {"href": "/match-explorer",   "label": "Matches",       "icon": "MATCH"},
+    {"href": "/head-to-head",     "label": "H2H",           "icon": "RIVAL"},
+    {"href": "/players",          "label": "Players",       "icon": "PLAYER"},
+    {"href": "/player-vs-player", "label": "Matchup",       "icon": "VS"},
+    {"href": "/teams",            "label": "Teams",         "icon": "TEAM"},
+    {"href": "/advanced",         "label": "Lab",           "icon": "LAB"},
 ]
 
 
 def _nav_link(item, mobile=False):
-    cls = "drawer-nav-link" if mobile else "nav-link"
+    cls = "drawer-link" if mobile else "nav-link"
     return html.A(
-        [html.Span(item["icon"], className="nav-link-icon"), item["label"]],
+        [
+            html.Span(item["icon"], className="nav-link-tag"),
+            html.Span(item["label"], className="nav-link-label"),
+        ],
         href=item["href"],
         className=cls,
     )
@@ -58,101 +60,89 @@ def _nav_link(item, mobile=False):
 
 def make_navbar():
     return html.Nav([
-        # Logo
         html.A([
-            html.Div("🏏", className="nav-logo-ball"),
-            html.Span("IPL INTEL", className="nav-logo-text"),
+            html.Div(className="logo-orb"),
+            html.Div([
+                html.Span("IPL", className="logo-ipl"),
+                html.Span("INTEL", className="logo-intel"),
+            ], className="logo-text-wrap"),
         ], href="/", className="nav-logo"),
 
-        # Center links (desktop)
-        html.Div(
-            [_nav_link(item) for item in NAV_ITEMS],
-            className="nav-links",
-        ),
+        html.Div([_nav_link(item) for item in NAV_ITEMS], className="nav-links"),
 
-        # Right side
         html.Div([
-            html.Span("2008 – 2024", className="nav-badge"),
-            html.Button([html.Span(), html.Span(), html.Span()],
-                        className="hamburger", id="hamburger-btn",
-                        **{"aria-label": "Menu"}),
+            html.Span("2024", className="nav-season-badge"),
+            html.Button(
+                [html.Span(className="bar"), html.Span(className="bar"), html.Span(className="bar")],
+                className="hamburger",
+                id="hamburger-btn",
+                **{"aria-label": "Open menu"},
+            ),
         ], className="nav-right"),
-    ], className="floating-navbar", id="floating-navbar")
+    ], className="navbar", id="navbar")
 
 
-def make_mobile_drawer():
-    links = [_nav_link(item, mobile=True) for item in NAV_ITEMS]
+def make_drawer():
     return html.Div([
         html.Div([
-            html.Div("🏏", className="nav-logo-ball", style={"marginBottom": "4px"}),
-            html.Div("IPL INTEL", style={
-                "fontFamily": "'Orbitron', sans-serif",
-                "fontSize": "0.9rem",
-                "fontWeight": "700",
-                "letterSpacing": "0.14em",
-                "color": "#f5a623",
-                "marginBottom": "20px",
-            }),
-        ], style={"textAlign": "center"}),
-        *links,
-        html.Div(style={"flex": "1"}),
-        html.Div("Built with Dash · Plotly", style={
-            "fontFamily": "'JetBrains Mono', monospace",
-            "fontSize": "0.65rem",
-            "color": "rgba(255,255,255,0.2)",
-            "letterSpacing": "0.08em",
-            "textAlign": "center",
-            "paddingTop": "20px",
-            "borderTop": "1px solid rgba(255,255,255,0.06)",
-        }),
-    ], className="mobile-drawer", id="mobile-drawer")
+            html.Div(className="drawer-logo-orb"),
+            html.Div("IPL INTEL", className="drawer-logo-text"),
+            html.Button("✕", className="drawer-close", id="drawer-close"),
+        ], className="drawer-header"),
+        html.Nav([_nav_link(item, mobile=True) for item in NAV_ITEMS], className="drawer-nav"),
+        html.Div([
+            html.Div("2008 – 2024 · Cricsheet Data", className="drawer-footer-text"),
+        ], className="drawer-footer"),
+    ], className="drawer", id="drawer")
 
 
-# ─── Root Layout ───────────────────────────────────────────────────────────────
 app.layout = html.Div([
     dcc.Store(id="data-loaded", data=True),
     dcc.Location(id="url", refresh=False),
 
-    # ── Animated background layers ──────────────────────────────
-    html.Div(className="ipl-bg"),
-    html.Canvas(id="particle-canvas"),
+    html.Div(id="cursor"),
+    html.Div(id="cursor-trail"),
 
-    # ── Custom cursor ───────────────────────────────────────────
-    html.Div(id="cursor", className="cursor"),
-    html.Div(id="cursor-ring", className="cursor-ring"),
-
-    # ── Page loader ─────────────────────────────────────────────
     html.Div([
-        html.Div("IPL INTEL", className="loader-brand"),
-        html.Div("Cricket Intelligence Platform", className="loader-sub"),
-        html.Div(html.Div(className="loader-fill"), className="loader-track"),
+        html.Div(className="loader-orb"),
+        html.Div([
+            html.Div("IPL", className="loader-title-ipl"),
+            html.Div("INTELLIGENCE", className="loader-title-sub"),
+        ], className="loader-title"),
+        html.Div(className="loader-bar-wrap", children=[
+            html.Div(className="loader-bar-fill", id="loader-bar"),
+        ]),
+        html.Div("Loading cricket data…", className="loader-hint"),
     ], id="page-loader", className="page-loader"),
 
-    # ── Scroll progress ─────────────────────────────────────────
-    html.Div(className="scroll-progress", id="scroll-progress"),
+    html.Div(className="scroll-line", id="scroll-line"),
 
-    # ── Floating navbar ─────────────────────────────────────────
+    html.Div(className="ambient-layer"),
+    html.Canvas(id="particle-canvas"),
+
     make_navbar(),
+    make_drawer(),
+    html.Div(className="drawer-backdrop", id="drawer-backdrop"),
 
-    # ── Mobile drawer + overlay ─────────────────────────────────
-    make_mobile_drawer(),
-    html.Div(className="drawer-overlay", id="drawer-overlay"),
-
-    # ── Page content ────────────────────────────────────────────
     html.Main(
-        html.Div(dash.page_container, className="page-wrap"),
-        className="main-content",
+        html.Div(dash.page_container, className="page-content"),
+        className="main",
     ),
 
-    # ── Footer ──────────────────────────────────────────────────
-    html.Footer(
-        "IPL Intel  ·  2008–2024  ·  Built with Dash & Plotly  ·  Data: Cricsheet",
-        className="page-footer",
-    ),
+    html.Footer([
+        html.Div([
+            html.Span("IPL INTEL", className="footer-brand"),
+            html.Span("·", className="footer-dot"),
+            html.Span("2008 – 2024", className="footer-meta"),
+            html.Span("·", className="footer-dot"),
+            html.Span("Data: Cricsheet", className="footer-meta"),
+            html.Span("·", className="footer-dot"),
+            html.Span("Built with Dash & Plotly", className="footer-meta"),
+        ], className="footer-inner"),
+    ], className="footer"),
 
-], className="app-root")
+], id="app-root")
 
 
-# ─── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     app.run(debug=True, port=8050)
