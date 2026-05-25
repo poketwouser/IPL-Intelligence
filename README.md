@@ -31,17 +31,43 @@ This is not a dashboard. It's a **sports cinematography engine** — with GSAP-p
 
 ---
 
+## 🧠 Problem Statement & Engineering Challenges
+
+The vast Cricsheet IPL ball-by-ball dataset (~260,000+ deliveries) contains immense analytical potential, but standard visualization dashboards fail to capture the adrenaline, cinematic atmosphere, and storytelling inherent to T20 cricket. **The goal** was to build a highly performant, production-grade intelligence platform that marries deep statistical rigor with the premium aesthetics of modern sports broadcasting (e.g., Apple Sports, F1).
+
+### Key Challenges & Solutions
+
+1. **Handling Massive Data at Scale Without Crashing**
+   * **Problem**: Processing 260K+ rows of delivery data across multiple interactive UI modules dynamically creates massive Memory (OOM) spikes and severe latency during route transitions.
+   * **Solution**: Migrated from raw CSVs to **highly compressed Parquet files**. Data is pre-aggregated and globally cached in memory via `Flask-Caching` on application startup. This allows instantaneous querying and route-switching without triggering repeated I/O reads.
+
+2. **Automated Asset Retrieval & Semantic Ambiguity**
+   * **Problem**: Automatically sourcing 700+ high-quality player portraits is notoriously difficult due to name abbreviations (e.g., "YS Chahal" vs "Yuzvendra Chahal") and the anti-bot protections of sports CDNs. Early iterations fetched incorrect celebrity or stock photos.
+   * **Solution**: Engineered a robust, multi-stage retrieval pipeline. Player initials are semantically expanded via Wikipedia/Bing to their full names, cross-referenced with a hardcoded ESPNcricinfo ID map for legends, and validated locally before being persistently cached in `assets/images/players`.
+
+3. **Achieving 60FPS Animations in a Python Framework**
+   * **Problem**: Dash inherently uses React under the hood, but injecting heavy, scroll-triggered DOM animations entirely from a Python backend often results in severe stuttering and jittery component transitions.
+   * **Solution**: Bypassed Dash's native callback-based animation limits by injecting **raw GSAP 3.12 (GreenSock)** and **Lenis Smooth Scroll** directly into the browser DOM (`assets/animations.js`). This offloads all cinematic scroll reveals, 3D tilts, and holographic foil calculations directly to the GPU.
+
+4. **Dynamic Timelines & Season Handling**
+   * **Problem**: Hardcoding dataset boundaries (e.g., stopping at 2024) breaks the UI when new seasons are added, leading to skewed calculations or missing dropdown options.
+   * **Solution**: Architected a fully dynamic global configuration. The app dynamically polls the underlying Parquet files to detect the exact `min_season` and `max_season` (currently 2026), automatically adjusting UI labels to state `"2026 Live/Partial"` and recalculating all all-time metrics dynamically without requiring code updates.
+
+---
+
 ## 🎯 Features
 
 ### 📊 Analytics Modules
 | Module | Description |
 |--------|-------------|
 | **Overview** | Cinematic homepage with hero, season rewind timeline, KPI counters |
+| **All-Time** | Historical leaderboard, milestone trackers, and ultimate legends |
 | **Match Explorer** | Ball-by-ball scorecards, Manhattan, Worm, Fall of Wickets |
 | **Head to Head** | Team rivalry analysis with margin distributions, season arcs |
 | **Player Analysis** | FIFA-style profile cards, radar charts, performance meters |
 | **Batter vs Bowler** | Matchup arena with outcome distributions, over-by-over profiling |
 | **Team Intelligence** | Trophy cabinets, venue dominance, season performance trends |
+| **Scorecard Cinema** | Immersive, full-screen playback of legendary match scorecards |
 | **Analytics Lab** | Win probability curves, Impact Player scores, phase evolution |
 
 ### 🎨 Design System
