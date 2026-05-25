@@ -42,10 +42,7 @@ npm-debug.log*
 .cache/
 .pytest_cache/
 
-# Player images (downloaded at runtime / too large for git)
-assets/images/players/*.jpg
-assets/images/players/*.png
-assets/images/players/*.webp
+# Player images (downloaded at runtime, but tracked for production hosting cache)
 !assets/images/players/.gitkeep
 
 # Build artifacts

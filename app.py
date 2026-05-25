@@ -148,5 +148,8 @@ app.layout = html.Div([
 ], id="app-root")
 
 
+import os
+
 if __name__ == "__main__":
-    app.run(debug=True, port=8050)
+    debug_mode = os.environ.get("FLASK_ENV") == "development"
+    app.run(debug=debug_mode, port=8050)
