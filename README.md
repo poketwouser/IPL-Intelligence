@@ -5,7 +5,7 @@
   <img src="https://img.shields.io/badge/Plotly-5.18+-3F4F75?style=flat-square&logo=plotly" />
   <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python" />
   <img src="https://img.shields.io/badge/GSAP-3.12-88CE02?style=flat-square" />
-  <img src="https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=flat-square&logo=railway" />
+  <img src="https://img.shields.io/badge/Deploy-Vercel-000000?style=flat-square&logo=vercel" />
 </p>
 
 <h1 align="center">🏏 IPL Intelligence Platform</h1>
@@ -69,9 +69,9 @@ This is not a dashboard. It's a **sports cinematography engine** — with GSAP-p
 | **Animations** | GSAP 3.12 + ScrollTrigger |
 | **Scrolling** | Lenis smooth scroll |
 | **Styling** | Custom CSS (2,500+ lines, design system v5) |
-| **Server** | Flask + Gunicorn |
+| **Server** | Flask + Vercel Serverless |
 | **Caching** | Flask-Caching (SimpleCache) |
-| **Deployment** | Railway / Docker |
+| **Deployment** | Vercel (vercel.json + api/index.py included) |
 | **Data Source** | [Cricsheet](https://cricsheet.org/) (2008–2026) |
 
 ---
@@ -126,13 +126,13 @@ Open **http://localhost:8050** in your browser.
 
 ## 🌍 Deployment
 
-### Railway (Recommended)
+### Vercel (Recommended)
 
-1. Push to GitHub
-2. Create a new project on [Railway](https://railway.app)
-3. Select **Deploy from GitHub repo**
-4. Railway will automatically detect the `Dockerfile` and build the app
-5. Add a custom domain or use the provided `.up.railway.app` URL 🚀
+1. Push your code to GitHub.
+2. Go to [Vercel](https://vercel.com) and click **Add New Project**.
+3. Import your GitHub repository.
+4. Leave all settings as default (Vercel will auto-detect `vercel.json`).
+5. Click **Deploy**. The app will be available on a `.vercel.app` domain. 🚀
 
 ### Hugging Face Spaces (Free Alternative)
 
