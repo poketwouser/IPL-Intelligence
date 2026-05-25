@@ -34,16 +34,36 @@ layout = html.Div([
             "Season",
             dcc.Dropdown(
                 id="me-season",
-                options=[{"label": str(s), "value": s}
-                         for s in sorted(M["Season"].dropna().unique())],
-                value=int(M["Season"].max()),
+                options=[{"label": "All Seasons", "value": "ALL"}] + [{"label": str(s), "value": s}
+                         for s in range(SMAX, SMIN - 1, -1)],
+                value=SMAX,
                 clearable=False,
-                style={"color": "black"},
+                className="dark-dropdown",
+            ),
+        ),
+        control_group(
+            "Team 1 (Optional)",
+            dcc.Dropdown(
+                id="me-team1",
+                options=[{"label": t, "value": t} for t in sorted(M["Team1"].dropna().unique())],
+                placeholder="Any Team",
+                clearable=True,
+                className="dark-dropdown",
+            ),
+        ),
+        control_group(
+            "Team 2 (Optional)",
+            dcc.Dropdown(
+                id="me-team2",
+                options=[{"label": t, "value": t} for t in sorted(M["Team1"].dropna().unique())],
+                placeholder="Any Team",
+                clearable=True,
+                className="dark-dropdown",
             ),
         ),
         control_group(
             "Select Match",
-            dcc.Dropdown(id="me-match", placeholder="Choose a match…", style={"color": "black"}),
+            dcc.Dropdown(id="me-match", placeholder="Choose a match…", className="dark-dropdown", optionHeight=50),
         ),
     ),
 
@@ -55,17 +75,52 @@ layout = html.Div([
     Output("me-match", "options"),
     Output("me-match", "value"),
     Input("me-season",  "value"),
+    Input("me-team1", "value"),
+    Input("me-team2", "value"),
 )
-def update_match_options(season):
-    if not season:
-        return [], None
-    sm = M[M["Season"] == season].sort_values("Date")
+def update_match_options(season, team1, team2):
+    sm = M.copy()
+    if season and season != "ALL":
+        sm = sm[sm["Season"] == season]
+        
+    if team1:
+        sm = sm[(sm["Team1"] == team1) | (sm["Team2"] == team1)]
+    if team2:
+        sm = sm[(sm["Team1"] == team2) | (sm["Team2"] == team2)]
+        
+    sm = sm.sort_values(["Season", "Date"])
+    
     options = []
-    for _, row in sm.iterrows():
-        label = f"{team_abbr(row['Team1'])} vs {team_abbr(row['Team2'])}  ·  {str(row['Date'])[:10]}"
-        if "Venue" in row and pd.notna(row["Venue"]):
-            label += f"  @  {str(row['Venue'])[:28]}"
-        options.append({"label": label, "value": int(row["Id"])})
+    # Add match numbers within each season
+    for s in sm["Season"].unique():
+        season_matches = sm[sm["Season"] == s].copy()
+        season_matches = season_matches.reset_index(drop=True)
+        
+        for idx, row in season_matches.iterrows():
+            match_num = str(idx + 1).zfill(2)
+            m_type = str(row.get('Match_Type', 'League')).title()
+            label_text = f"Match {match_num} • {team_abbr(row['Team1'])} vs {team_abbr(row['Team2'])}"
+            if m_type != "League":
+                label_text = f"{m_type} • {team_abbr(row['Team1'])} vs {team_abbr(row['Team2'])}"
+                
+            sub_text = f"{str(row['Date'])[:10]} • {str(row['Venue'])[:25]}"
+            
+            # Using HTML string rendering isn't natively supported in standard dcc.Dropdown labels, 
+            # but we can structure a clean string. Dash handles title/search if we use simple strings.
+            full_label = f"{label_text} | {sub_text}"
+            
+            # Add searchable metadata
+            search_str = f"{row['Team1']} {row['Team2']} {row['Venue']} {row['City']} {m_type} {season} Match {match_num} {row['Date']}"
+            
+            options.append({
+                "label": full_label, 
+                "value": int(row["Id"]),
+                "title": search_str  # tooltip and search aid
+            })
+            
+    # Sort options reverse chronologically so latest is first
+    options = options[::-1]
+    
     return options, options[0]["value"] if options else None
 
 

@@ -35,13 +35,13 @@ layout = html.Div([
             "🏏 Batter",
             dcc.Dropdown(id="pvp-batter",
                          options=[{"label": p, "value": p} for p in PLAYERS],
-                         placeholder="Select Batter…", style={"color": "black"}),
+                         placeholder="Select Batter…", className="dark-dropdown"),
         ),
         control_group(
             "🎯 Bowler",
             dcc.Dropdown(id="pvp-bowler",
                          options=[{"label": p, "value": p} for p in PLAYERS],
-                         placeholder="Select Bowler…", style={"color": "black"}),
+                         placeholder="Select Bowler…", className="dark-dropdown"),
         ),
         control_group(
             "Season Range",
@@ -57,7 +57,30 @@ layout = html.Div([
     html.Div(id="pvp-charts"),
 ])
 
-
+@callback(
+    Output("pvp-batter", "options"),
+    Output("pvp-bowler", "options"),
+    Input("pvp-season", "value"),
+)
+def update_pvp_dropdowns(season_range):
+    if not season_range:
+        return dash.no_update, dash.no_update
+        
+    s0, s1 = season_range
+    m = DATA["matches"]
+    d = DATA["deliveries"]
+    
+    # Filter matches within the season range
+    m_filtered = m[(m["Season"] >= s0) & (m["Season"] <= s1)]
+    d_filtered = d[d["Match_Id"].isin(m_filtered["Id"])]
+    
+    valid_batters = sorted(d_filtered["Batter"].dropna().unique().tolist())
+    valid_bowlers = sorted(d_filtered["Bowler"].dropna().unique().tolist())
+    
+    bat_options = [{"label": p, "value": p} for p in valid_batters]
+    bowl_options = [{"label": p, "value": p} for p in valid_bowlers]
+    
+    return bat_options, bowl_options
 @callback(
     Output("pvp-arena",  "children"),
     Output("pvp-kpis",   "children"),
@@ -76,10 +99,11 @@ def update_pvp(batter, bowler, season):
             None, None,
         )
 
+    actual_latest = int(DATA["matches"]["Season"].max()) if not DATA["matches"].empty else 2024
     result = player_vs_player_stats(batter, bowler, DATA["deliveries"], season)
     if result is None:
         return (
-            html.P("No head-to-head data found.",
+            html.P(f"No head-to-head data found. Note: Data coverage currently ends at {actual_latest}.",
                    style={"textAlign": "center", "color": "rgba(255,255,255,0.3)",
                           "fontFamily": "'JetBrains Mono',monospace", "padding": "40px"}),
             None, None,

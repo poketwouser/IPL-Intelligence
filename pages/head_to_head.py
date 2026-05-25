@@ -38,23 +38,50 @@ layout = html.Div([
 
     controls_bar(
         control_group(
+            "Quick Rivalry",
+            dcc.Dropdown(
+                id="h2h-preset",
+                options=[
+                    {"label": "MI vs CSK (El Clasico)", "value": "Mumbai Indians|Chennai Super Kings"},
+                    {"label": "RCB vs CSK (Southern Derby)", "value": "Royal Challengers Bangalore|Chennai Super Kings"},
+                    {"label": "MI vs RCB", "value": "Mumbai Indians|Royal Challengers Bangalore"},
+                    {"label": "KKR vs RCB", "value": "Kolkata Knight Riders|Royal Challengers Bangalore"}
+                ],
+                placeholder="Select Preset", 
+                className="dark-dropdown"
+            ),
+        ),
+        control_group(
             "Team A",
             dcc.Dropdown(id="h2h-team-a",
                          options=[{"label": t, "value": t} for t in TEAMS],
-                         placeholder="Select Team A", style={"color": "black"}),
+                         placeholder="Select Team A", className="dark-dropdown"),
+        ),
+        html.Div(
+            html.Button("⇄", id="h2h-swap", n_clicks=0, style={
+                "background": "rgba(255,255,255,0.05)", "border": "1px solid rgba(255,255,255,0.2)", 
+                "color": "white", "borderRadius": "50%", "width": "42px", "height": "42px", 
+                "cursor": "pointer", "fontSize": "1.2rem", "marginTop": "22px",
+                "transition": "all 0.3s ease"
+            }),
+            style={"display": "flex", "alignItems": "center", "justifyContent": "center"}
         ),
         control_group(
             "Team B",
             dcc.Dropdown(id="h2h-team-b",
                          options=[{"label": t, "value": t} for t in TEAMS],
-                         placeholder="Select Team B", style={"color": "black"}),
+                         placeholder="Select Team B", className="dark-dropdown"),
         ),
         control_group(
             "Season Range",
-            dcc.RangeSlider(id="h2h-season", min=SMIN, max=SMAX, step=1,
-                            value=[SMIN, SMAX],
-                            marks={y: str(y) for y in range(SMIN, SMAX+1, 3)},
-                            tooltip={"placement": "bottom"}),
+            html.Div(
+                dcc.RangeSlider(id="h2h-season", min=SMIN, max=SMAX, step=1,
+                                value=[SMIN, SMAX],
+                                marks={y: str(y) for y in range(SMIN, SMAX+1, 2)},
+                                tooltip={"placement": "bottom", "always_visible": False},
+                                className="dark-slider"),
+                style={"padding": "0 10px", "minWidth": "300px"} # Prevent clipping
+            )
         ),
     ),
 
@@ -62,6 +89,32 @@ layout = html.Div([
     html.Div(id="h2h-kpis"),
     html.Div(id="h2h-plots"),
 ])
+
+
+@callback(
+    Output("h2h-team-a", "value"),
+    Output("h2h-team-b", "value"),
+    Input("h2h-preset", "value"),
+    Input("h2h-swap", "n_clicks"),
+    dash.State("h2h-team-a", "value"),
+    dash.State("h2h-team-b", "value"),
+    prevent_initial_call=True
+)
+def handle_h2h_controls(preset, swap_clicks, team_a, team_b):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update
+        
+    trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    
+    if trigger_id == "h2h-preset" and preset:
+        t1, t2 = preset.split("|")
+        return t1, t2
+        
+    if trigger_id == "h2h-swap":
+        return team_b, team_a
+        
+    return dash.no_update, dash.no_update
 
 
 @callback(
@@ -91,9 +144,10 @@ def update_h2h(ta, tb, season):
 
     m = m[(m["Season"] >= s0) & (m["Season"] <= s1)]
 
+    actual_latest = int(DATA["matches"]["Season"].max()) if not DATA["matches"].empty else 2024
     if m.empty:
         empty_msg = html.P(
-            "No matches found for this selection.",
+            f"No matches found for this selection. Note: Data coverage currently ends at {actual_latest}.",
             style={"textAlign": "center", "color": "rgba(255,255,255,0.35)",
                    "padding": "40px", "fontFamily": "'JetBrains Mono',monospace"},
         )

@@ -55,17 +55,21 @@ layout = html.Div([
                 options=[{"label": p, "value": p} for p in PLAYERS],
                 value=_default_player,
                 clearable=False,
-                style={"color": "black"},
+                className="dark-dropdown",
             ),
         ),
         control_group(
             "Season Range",
-            dcc.RangeSlider(
-                id="pa-season", min=SMIN, max=SMAX, step=1,
-                value=[SMIN, SMAX],
-                marks={y: str(y) for y in range(SMIN, SMAX + 1, 3)},
-                tooltip={"placement": "bottom"},
-            ),
+            html.Div(
+                dcc.RangeSlider(
+                    id="pa-season", min=SMIN, max=SMAX, step=1,
+                    value=[SMIN, SMAX],
+                    marks={y: str(y) for y in range(SMIN, SMAX + 1, 2)},
+                    tooltip={"placement": "bottom", "always_visible": False},
+                    className="dark-slider"
+                ),
+                style={"padding": "0 10px", "minWidth": "300px"}
+            )
         ),
     ),
 
@@ -162,6 +166,16 @@ def update_player(player, season_range):
     role  = classify_player_role(player, d)
     team  = get_player_team(player, d)
     clr   = team_color(team) or "#f5a623"
+    
+    actual_latest = int(DATA["matches"]["Season"].max()) if not DATA["matches"].empty else 2024
+    if d.empty:
+        return (
+            html.P(f"No data available for this player in the selected seasons. Note: Data coverage currently ends at {actual_latest}.",
+                   style={"textAlign": "center", "color": "rgba(255,255,255,0.3)",
+                          "fontFamily": "'JetBrains Mono',monospace", "padding": "40px"}),
+            None
+        )
+
     bat   = batting_summary(player, d)
     bowl  = bowling_summary(player, d)
     image_url = get_player_image_url(player)

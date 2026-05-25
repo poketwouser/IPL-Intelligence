@@ -427,7 +427,8 @@
      PERFORMANCE METER ANIMATION
   ════════════════════════════════════════════════════════ */
   function initPerfMeters() {
-    document.querySelectorAll(".perf-meter-fill:not([data-animated])").forEach(fill => {
+    const perfSel = ".perf-meter-fill:not([data-animated]), .legend-bar-fill:not([data-animated]), .dynasty-bar:not([data-animated])";
+    document.querySelectorAll(perfSel).forEach(fill => {
       const target = fill.dataset.width || "0%";
       fill.dataset.animated = "1";
 

@@ -33,6 +33,7 @@ V    = DATA["venues"]
 
 def build():
     m, d = M.copy(), D.copy()
+    m = m.drop_duplicates(subset=["Id"])
 
     # ── Global KPIs ──────────────────────────────────────────────────
     total_matches = len(m)
@@ -40,11 +41,10 @@ def build():
     total_sixes   = int((d["Batsman_Runs"] == 6).sum())
     total_fours   = int((d["Batsman_Runs"] == 4).sum())
     seasons_count = m["Season"].nunique()
-    total_players = d["Batter"].nunique()
+    
+    # Accurate player count includes both batters and bowlers
+    total_players = pd.concat([d["Batter"], d["Bowler"]]).nunique()
     total_venues  = m["Venue"].nunique()
-
-    # Format runs in millions properly
-    runs_millions = total_runs / 1_000_000
 
     # ── Team/player maps ─────────────────────────────────────────────
     bat_team = (d.groupby(["Batter","Batting_Team"]).size().reset_index(name="c")
@@ -73,6 +73,8 @@ def build():
 
     latest_season = int(m["Season"].max())
     min_season    = int(m["Season"].min())
+    seasons_count = m["Season"].nunique()
+    
     champ_match   = finals[finals["Season"] == latest_season] if not finals.empty else pd.DataFrame()
     champion      = champ_match["Winner"].iloc[0] if not champ_match.empty else "N/A"
 
@@ -92,6 +94,11 @@ def build():
     # ═══════════════════════════════════════════════════════════════════
     # CINEMATIC HERO — Full viewport, stadium atmosphere
     # ═══════════════════════════════════════════════════════════════════
+    # Improved large number format for runs
+    runs_k = int(total_runs / 1000)
+    
+    season_label = f"{latest_season} Live / Partial" if latest_season == 2026 else str(latest_season)
+    
     hero = html.Section([
         # Background layers
         html.Div(className="home-hero-bg", children=[
@@ -104,7 +111,7 @@ def build():
 
         # Main content
         html.Div([
-            html.Div(f"IPL · {min_season} – {latest_season} · CRICKET INTELLIGENCE", className="home-hero-eyebrow"),
+            html.Div(f"IPL · {min_season} – {season_label} · CRICKET INTELLIGENCE", className="home-hero-eyebrow"),
 
             html.H1([
                 html.Span("CRICKET", className="line-1"),
@@ -112,7 +119,7 @@ def build():
             ], className="home-hero-title"),
 
             html.P(
-                f"{seasons_count} seasons. {total_matches:,} matches. {runs_millions:.1f}M runs. "
+                f"{seasons_count} seasons. {total_matches:,} matches. {runs_k}K+ runs. "
                 "Every delivery, every wicket, every moment — decoded.",
                 className="home-hero-sub",
             ),
@@ -132,8 +139,8 @@ def build():
                 html.Div([
                     html.Div([
                         html.Span(className="stat-value",
-                                  **{"data-counter": str(round(runs_millions, 1)),
-                                     "data-suffix": "M", "data-decimals": "1",
+                                  **{"data-counter": str(runs_k),
+                                     "data-suffix": "K+",
                                      "data-duration": "1800"}),
                     ], className="hero-stat-val"),
                     html.Div("Runs Scored", className="hero-stat-lbl"),
@@ -180,7 +187,7 @@ def build():
     # ═══════════════════════════════════════════════════════════════════
     champ_color = team_color(champion) if champion != "N/A" else "#f5a623"
     season_banner = html.Div([
-        html.Div(str(latest_season), className="season-banner-year"),
+        html.Div(season_label, className="season-banner-year"),
         html.Div(className="season-banner-divider"),
         html.Div([
             html.Div([
@@ -495,7 +502,7 @@ def build():
         html.Div(className="section-divider"),
 
         # 7 · Charts
-        section_header("SEASON OVERVIEW", f"{min_season} – {latest_season}"),
+        section_header("SEASON OVERVIEW", f"{min_season} – {season_label}"),
         html.Div([
             _chart(fig_season),
         ], className="reveal mb-lg"),
@@ -530,8 +537,8 @@ def build():
         # 10 · Insights
         html.Div([
             insight_card("PLATFORM",
-                         f"IPL Intelligence covers all {seasons_count} seasons from {min_season} to {latest_season} — "
-                         f"{total_matches:,} matches, {runs_millions:.1f}M runs, "
+                         f"IPL Intelligence covers all {seasons_count} seasons from {min_season} to {season_label} — "
+                         f"{total_matches:,} matches, {runs_k}K+ runs, "
                          f"and {total_sixes:,} sixes across {total_venues} venues."),
             insight_card("DOMINANCE",
                          f"Mumbai Indians and Chennai Super Kings are the benchmark franchises — "

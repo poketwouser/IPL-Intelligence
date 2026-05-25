@@ -234,43 +234,36 @@ def build():
     impact_df = impact_player_scores(d, m, i)
     team_strat = team_impact_strategy(d, m)
 
-    # Impact Player leaderboard
-    fig_impact = go.Figure()
+    # Get team for each player
+    bat_team_map = (d.groupby(["Batter","Batting_Team"]).size().reset_index(name="c")
+                    .sort_values("c", ascending=False).drop_duplicates("Batter")
+                    .set_index("Batter")["Batting_Team"].to_dict())
+
+    # Impact rankings list
+    impact_rankings = []
     if not impact_df.empty:
-        top_impact = impact_df.head(15).sort_values("impact_score")
-        # Get team for each player
-        bat_team_map = (d.groupby(["Batter","Batting_Team"]).size().reset_index(name="c")
-                        .sort_values("c", ascending=False).drop_duplicates("Batter")
-                        .set_index("Batter")["Batting_Team"].to_dict())
-
-        top_impact["team"] = top_impact["Player"].map(bat_team_map).fillna("N/A")
-        top_impact["color"] = top_impact["team"].apply(lambda t: team_color(t) or "#00ff87")
-        top_impact["label"] = top_impact.apply(
-            lambda r: f"{r['Player'].split()[-1]} · {team_abbr(r['team'])}", axis=1
-        )
-
-        fig_impact = go.Figure(go.Bar(
-            x=top_impact["impact_score"], y=top_impact["label"],
-            orientation="h",
-            marker=dict(color=top_impact["color"].tolist(), opacity=0.85, line=dict(width=0)),
-            text=top_impact["impact_score"].apply(lambda v: f"{v:.1f}"),
-            textposition="outside",
-            textfont=dict(color="rgba(255,255,255,0.5)", size=10),
-            hovertemplate="%{y}<br>Impact Score: %{x:.1f}<extra></extra>",
-        ))
-    apply_dark_theme(fig_impact,
-                     title="Impact Score Leaderboard — Top 15",
-                     height=420,
-                     xaxis=dict(title="Avg Impact Score per Match", showgrid=False),
-                     margin=dict(l=160, r=70, t=44, b=36))
+        max_impact = impact_df.iloc[0]["impact_score"]
+        impact_rankings = rankings_list(*[
+            ranking_row(idx+1, row["Player"], round(row["impact_score"], 1),
+                        max_impact, " pts",
+                        team_color(bat_team_map.get(row["Player"], "")) or "#00ff87")
+            for idx, (_, row) in enumerate(impact_df.head(15).iterrows())
+        ])
 
     # Team phase strategy heatmap
     fig_team_strat = go.Figure()
     if not team_strat.empty:
-        # Pivot to create heatmap data
+        # Get the top 10 teams by overall RPO to ensure consistent x-axis categories
+        top_teams = team_strat.groupby("Batting_Team")["rpo"].mean().nlargest(10).index.tolist()
+        
         for phase in ["Powerplay", "Middle", "Death"]:
-            pdf = team_strat[team_strat["phase"] == phase].nlargest(10, "rpo")
+            # Filter to top teams and ensure we have an entry for each
+            pdf = team_strat[(team_strat["phase"] == phase) & (team_strat["Batting_Team"].isin(top_teams))].copy()
+            # Sort by the predefined top_teams order to keep x-axis identical
+            pdf["Batting_Team"] = pd.Categorical(pdf["Batting_Team"], categories=top_teams, ordered=True)
+            pdf = pdf.sort_values("Batting_Team")
             pdf["abbr"] = pdf["Batting_Team"].apply(team_abbr)
+            
             fig_team_strat.add_trace(go.Bar(
                 x=pdf["abbr"], y=pdf["rpo"],
                 name=phase,
@@ -285,20 +278,9 @@ def build():
                      yaxis=dict(title="Runs per Over", gridcolor="rgba(255,255,255,0.04)"),
                      legend=dict(x=0.5, y=1.1, xanchor="center", orientation="h"))
 
-    # Impact rankings list
-    impact_rankings = []
-    if not impact_df.empty:
-        max_impact = impact_df.iloc[0]["impact_score"]
-        impact_rankings = rankings_list(*[
-            ranking_row(i+1, row["Player"], round(row["impact_score"], 1),
-                        max_impact, " pts",
-                        team_color(bat_team_map.get(row["Player"], "")) or "#00ff87")
-            for i, (_, row) in enumerate(impact_df.head(10).iterrows())
-        ])
-
     # ── Summary KPIs ──────────────────────────────────────────────────────────
-    avg_wp_early = round(np.mean([wp_pct[i] for i in range(0, 6)]), 1)
-    avg_wp_death = round(np.mean([wp_pct[i] for i in range(14, 20)]), 1)
+    avg_wp_early = round(np.mean([wp_pct[j] for j in range(0, 6)]), 1)
+    avg_wp_death = round(np.mean([wp_pct[j] for j in range(14, 20)]), 1)
     avg_toss_win = round(toss_season["pct"].mean(), 1)
     peak_rpo_over = over_stats.loc[over_stats["boundary_pct"].idxmax(), "Over"] if not over_stats.empty else "N/A"
     top_impactor = impact_df.iloc[0]["Player"].split()[-1] if not impact_df.empty else "N/A"
@@ -347,22 +329,19 @@ def build():
         section_header("⚡ IMPACT PLAYER ANALYTICS", "CONTRIBUTION SCORING"),
 
         html.Div([
-            insight_card("METHODOLOGY",
-                         "Impact Score = avg(runs + wickets × 25) per match. "
-                         "Measures a player's total offensive contribution relative to appearances. "
-                         "Players with 10+ matches included."),
+            insight_card("ADVANCED METHODOLOGY",
+                         "Impact Score = avg(runs + SR Mod + wickets×25 + Eco Mod + Win Bonus) per match. "
+                         "Measures a player's total net contribution relative to appearances. "
+                         "Includes Strike Rate & Economy modifiers plus a +15 Win Bonus."),
         ], style={"marginBottom": "18px"}),
 
         html.Div([
             html.Div([
-                section_header("IMPACT LEADERBOARD", "TOP 10"),
+                section_header("IMPACT LEADERBOARD", "TOP 15"),
                 impact_rankings if impact_rankings else html.P("No data", style={"color": "var(--t4)"}),
             ], className="glass-card reveal"),
-            _card(fig_impact),
-        ], className="chart-row two-col reveal", style={"marginBottom": "18px"}),
-
-        html.Div(_card(fig_team_strat), className="reveal",
-                 style={"marginBottom": "28px"}),
+            _card(fig_team_strat),
+        ], className="chart-row two-col reveal", style={"marginBottom": "28px"}),
 
         # Insights
         html.Div([

@@ -29,7 +29,7 @@ URL = "https://cricsheet.org/downloads/ipl_json.zip"
 def _clean_name(name):
     if not isinstance(name, str):
         return name
-    return name.title().strip()
+    return name.strip()
 
 def _clean_team(team):
     if not isinstance(team, str):

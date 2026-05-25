@@ -120,8 +120,19 @@ def bowling_summary(player, deliveries):
     innings = bowl_del["Match_Id"].nunique()
 
     # Best figures per match
-    wkt_per_match = bowl_del[is_bowler_wicket(bowl_del)].groupby("Match_Id").size()
-    best_w = int(wkt_per_match.max()) if not wkt_per_match.empty else 0
+    best_w = 0
+    best_r = 0
+    if not bowl_del.empty:
+        match_runs = valid.groupby("Match_Id")["Total_Runs"].sum()
+        match_wkts = bowl_del[is_bowler_wicket(bowl_del)].groupby("Match_Id").size()
+        
+        # Combine runs and wickets per match
+        best_df = pd.DataFrame({"wkts": match_wkts, "runs": match_runs}).fillna(0)
+        if not best_df.empty:
+            # Sort by wickets (desc) then runs (asc)
+            best_df = best_df.sort_values(by=["wkts", "runs"], ascending=[False, True])
+            best_w = int(best_df.iloc[0]["wkts"])
+            best_r = int(best_df.iloc[0]["runs"])
 
     overs = balls / 6
     return {
@@ -130,7 +141,7 @@ def bowling_summary(player, deliveries):
         "sr": round(balls / wkts, 1) if wkts else "-",
         "dot_pct": round(dots / balls * 100, 1) if balls else 0,
         "runs_conceded": runs_conceded,
-        "best": f"{best_w}/" + str(0),
+        "best": f"{best_w}/{best_r}",
     }
 
 
@@ -180,8 +191,13 @@ def player_season_bowling(player, deliveries):
     innings = bowl.groupby("Season")["Match_Id"].nunique().reset_index(name="innings")
 
     season_stats = season_stats.merge(wkts, on="Season", how="left").merge(innings, on="Season", how="left").fillna(0)
-    season_stats["overs"] = season_stats["balls"] / 6
-    season_stats["economy"] = np.where(season_stats["overs"] > 0, round(season_stats["runs_conceded"] / season_stats["overs"], 2), 0)
+    
+    # Mathematical decimal overs for economy calculation
+    decimal_overs = season_stats["balls"] / 6
+    # Cricket notation for display (e.g. 4.3 overs = 4 overs + 3 balls)
+    season_stats["overs"] = (season_stats["balls"] // 6) + (season_stats["balls"] % 6) / 10
+    
+    season_stats["economy"] = np.where(decimal_overs > 0, round(season_stats["runs_conceded"] / decimal_overs, 2), 0)
     season_stats["sr"] = np.where(season_stats["wickets"] > 0, round(season_stats["balls"] / season_stats["wickets"], 1), 0)
     season_stats["dot_pct"] = np.where(season_stats["balls"] > 0, round(season_stats["dots"] / season_stats["balls"] * 100, 1), 0)
     season_stats["bowl_avg"] = np.where(season_stats["wickets"] > 0, round(season_stats["runs_conceded"] / season_stats["wickets"], 1), 0)
@@ -359,24 +375,59 @@ def impact_player_scores(deliveries, matches, impact_players=None, season=None):
     if d.empty or ip.empty:
         return pd.DataFrame()
 
-    # Calculate match-level contribution for all players
-    bat_contrib = (d.groupby(["Match_Id", "Batter"])["Batsman_Runs"]
-                   .sum().reset_index()
-                   .rename(columns={"Batter": "Player", "Batsman_Runs": "bat_runs"}))
-
-    wkt_df = d[is_bowler_wicket(d)]
-    bowl_contrib = (wkt_df.groupby(["Match_Id", "Bowler"]).size()
-                    .reset_index(name="wickets")
-                    .rename(columns={"Bowler": "Player"}))
-
-    contrib = bat_contrib.merge(bowl_contrib, on=["Match_Id", "Player"], how="outer").fillna(0)
-    contrib["impact_raw"] = contrib["bat_runs"] + contrib["wickets"] * 25
-
-    # Filter to ONLY players who were brought in as Impact Players in that match
-    ip_subbed_in = ip[["Match_Id", "Player_In"]].rename(columns={"Player_In": "Player"})
+    # Calculate match-level batting contribution
+    bat_df = d.groupby(["Match_Id", "Batter"]).agg(
+        bat_runs=("Batsman_Runs", "sum"),
+        bat_balls=("Batsman_Runs", "count")
+    ).reset_index().rename(columns={"Batter": "Player"})
     
-    # Inner merge to get contribution ONLY in the matches they were an Impact Player
+    # Strike rate modifier
+    bat_df["sr"] = np.where(bat_df["bat_balls"] > 0, bat_df["bat_runs"] / bat_df["bat_balls"] * 100, 0)
+    bat_df["sr_mod"] = np.where(bat_df["sr"] > 150, (bat_df["sr"] - 150) * 0.1, 
+                       np.where(bat_df["sr"] < 120, (bat_df["sr"] - 120) * 0.1, 0))
+    # Cap negative SR mod so we don't punish 0-ball guys
+    bat_df["sr_mod"] = np.where(bat_df["bat_balls"] < 5, 0, bat_df["sr_mod"])
+
+    # Calculate match-level bowling contribution
+    wkt_df = d[is_bowler_wicket(d)]
+    bowl_wkts = wkt_df.groupby(["Match_Id", "Bowler"]).size().reset_index(name="wickets")
+    
+    bowl_stats = d.groupby(["Match_Id", "Bowler"]).agg(
+        runs_conceded=("Total_Runs", "sum"),
+        bowl_balls=("Total_Runs", "count")
+    ).reset_index()
+    
+    bowl_df = bowl_stats.merge(bowl_wkts, on=["Match_Id", "Bowler"], how="left").fillna(0)
+    bowl_df = bowl_df.rename(columns={"Bowler": "Player"})
+    
+    # Economy modifier
+    bowl_df["eco"] = np.where(bowl_df["bowl_balls"] > 0, bowl_df["runs_conceded"] / (bowl_df["bowl_balls"] / 6), 0)
+    bowl_df["eco_mod"] = np.where(bowl_df["eco"] < 7.0, (7.0 - bowl_df["eco"]) * 2,
+                         np.where(bowl_df["eco"] > 10.0, (10.0 - bowl_df["eco"]) * 2, 0))
+    # Cap economy mod
+    bowl_df["eco_mod"] = np.where(bowl_df["bowl_balls"] < 12, 0, bowl_df["eco_mod"])
+
+    contrib = bat_df.merge(bowl_df, on=["Match_Id", "Player"], how="outer").fillna(0)
+    
+    # Add match context
+    match_context = m[["Id", "Winner"]].rename(columns={"Id": "Match_Id"})
+    contrib = contrib.merge(match_context, on="Match_Id", how="left")
+    
+    # Add win bonus later, need to know player's team. We get player team from impact_players
+    ip_subbed_in = ip[["Match_Id", "Player_In", "Team"]].rename(columns={"Player_In": "Player"})
     impact_matches = pd.merge(ip_subbed_in, contrib, on=["Match_Id", "Player"], how="inner")
+    
+    # Win contribution bonus
+    impact_matches["win_bonus"] = np.where(impact_matches["Team"] == impact_matches["Winner"], 15, 0)
+    
+    # Advanced Formula
+    impact_matches["impact_raw"] = (
+        impact_matches["bat_runs"] + 
+        impact_matches["bat_runs"] * (impact_matches["sr_mod"] / 100) + 
+        impact_matches["wickets"] * 25 + 
+        impact_matches["eco_mod"] + 
+        impact_matches["win_bonus"]
+    )
 
     # Aggregate by player across their Impact Player appearances
     player_impact = impact_matches.groupby("Player").agg(
@@ -385,10 +436,9 @@ def impact_player_scores(deliveries, matches, impact_players=None, season=None):
         total_wickets=("wickets", "sum"),
         total_impact=("impact_raw", "sum"),
         avg_impact=("impact_raw", "mean"),
-        max_impact=("impact_raw", "max"),
     ).reset_index()
 
-    # Filter for meaningful sample size (at least 2 impact appearances)
+    # Filter for meaningful sample size
     player_impact = player_impact[player_impact["matches"] >= 2]
     player_impact["impact_score"] = round(player_impact["avg_impact"], 1)
     player_impact = player_impact.sort_values("impact_score", ascending=False)

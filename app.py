@@ -11,6 +11,9 @@ from utils.data_loader import load_data
 from utils.constants import THEME
 
 DATA = load_data()
+ACTUAL_MAX = int(DATA["matches"]["Season"].max()) if not DATA["matches"].empty else 2024
+ACTUAL_MIN = int(DATA["matches"]["Season"].min()) if not DATA["matches"].empty else 2008
+SEASON_LABEL = "2026 Live/Partial" if ACTUAL_MAX == 2026 else str(ACTUAL_MAX)
 
 app = dash.Dash(
     __name__,
@@ -28,7 +31,7 @@ app = dash.Dash(
     meta_tags=[
         {"name": "viewport", "content": "width=device-width, initial-scale=1"},
         {"name": "theme-color", "content": "#010205"},
-        {"name": "description", "content": "Premium IPL Analytics Dashboard — 2008 to 2024"},
+        {"name": "description", "content": f"Premium IPL Analytics Dashboard — {ACTUAL_MIN} to {SEASON_LABEL}"},
     ],
 )
 
@@ -37,6 +40,7 @@ cache = Cache(server, config={"CACHE_TYPE": "SimpleCache", "CACHE_DEFAULT_TIMEOU
 
 NAV_ITEMS = [
     {"href": "/",                 "label": "Overview",      "icon": "HOME"},
+    {"href": "/all-time",         "label": "All-Time",      "icon": "GOAT"},
     {"href": "/match-explorer",   "label": "Matches",       "icon": "MATCH"},
     {"href": "/head-to-head",     "label": "H2H",           "icon": "RIVAL"},
     {"href": "/players",          "label": "Players",       "icon": "PLAYER"},
@@ -71,7 +75,7 @@ def make_navbar():
         html.Div([_nav_link(item) for item in NAV_ITEMS], className="nav-links"),
 
         html.Div([
-            html.Span("2024", className="nav-season-badge"),
+            html.Span(SEASON_LABEL, className="nav-season-badge"),
             html.Button(
                 [html.Span(className="bar"), html.Span(className="bar"), html.Span(className="bar")],
                 className="hamburger",
@@ -91,7 +95,7 @@ def make_drawer():
         ], className="drawer-header"),
         html.Nav([_nav_link(item, mobile=True) for item in NAV_ITEMS], className="drawer-nav"),
         html.Div([
-            html.Div("2008 – 2024 · Cricsheet Data", className="drawer-footer-text"),
+            html.Div(f"{ACTUAL_MIN} – {SEASON_LABEL} · Cricsheet Data", className="drawer-footer-text"),
         ], className="drawer-footer"),
     ], className="drawer", id="drawer")
 
@@ -133,7 +137,7 @@ app.layout = html.Div([
         html.Div([
             html.Span("IPL INTEL", className="footer-brand"),
             html.Span("·", className="footer-dot"),
-            html.Span("2008 – 2024", className="footer-meta"),
+            html.Span(f"{ACTUAL_MIN} – {SEASON_LABEL}", className="footer-meta"),
             html.Span("·", className="footer-dot"),
             html.Span("Data: Cricsheet", className="footer-meta"),
             html.Span("·", className="footer-dot"),

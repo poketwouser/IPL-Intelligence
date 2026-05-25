@@ -1,5 +1,9 @@
 """Theme constants, team mappings, and chart templates for the IPL Dashboard."""
 
+# ─── Global Season Configuration ──────────────────────────────────────────────
+MIN_AVAILABLE_SEASON = 2008
+MAX_AVAILABLE_SEASON = 2026
+
 # ─── Theme ────────────────────────────────────────────────────────────────────
 THEME = {
     "bg_dark": "#0b1020",

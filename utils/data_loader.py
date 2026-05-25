@@ -138,8 +138,6 @@ def get_player_list(deliveries=None):
     return sorted(players)
 
 def get_season_range(matches=None):
-    """Get (min_season, max_season) tuple."""
-    if matches is None:
-        matches = get_matches()
-    seasons = matches["Season"].dropna()
-    return int(seasons.min()), int(seasons.max())
+    """Get (min_season, max_season) tuple globally."""
+    from utils.constants import MIN_AVAILABLE_SEASON, MAX_AVAILABLE_SEASON
+    return MIN_AVAILABLE_SEASON, MAX_AVAILABLE_SEASON
