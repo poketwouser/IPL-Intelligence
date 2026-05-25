@@ -5,7 +5,7 @@
   <img src="https://img.shields.io/badge/Plotly-5.18+-3F4F75?style=flat-square&logo=plotly" />
   <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python" />
   <img src="https://img.shields.io/badge/GSAP-3.12-88CE02?style=flat-square" />
-  <img src="https://img.shields.io/badge/Deploy-Render-46E3B7?style=flat-square&logo=render" />
+  <img src="https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=flat-square&logo=railway" />
 </p>
 
 <h1 align="center">🏏 IPL Intelligence Platform</h1>
@@ -13,14 +13,14 @@
 <p align="center">
   <strong>Cinema-grade cricket analytics. Apple Sports × F1 aesthetics.</strong>
   <br/>
-  <em>17 seasons · 1,200+ matches · 260K+ deliveries — decoded.</em>
+  <em>19 seasons (2008–2026 Live) · 1,200+ matches · 260K+ deliveries — decoded.</em>
 </p>
 
 ---
 
 ## ✨ What Is This?
 
-IPL Intelligence is a **production-grade cricket analytics platform** built with Python, Dash, and Plotly. It transforms raw Cricsheet ball-by-ball data (2008–2024) into an immersive, cinematic sports intelligence experience.
+IPL Intelligence is a **production-grade cricket analytics platform** built with Python, Dash, and Plotly. It transforms raw Cricsheet ball-by-ball data (2008–2026) into an immersive, cinematic sports intelligence experience.
 
 This is not a dashboard. It's a **sports cinematography engine** — with GSAP-powered animations, glassmorphic UI, holographic player cards, scroll-triggered storytelling, and 3D tilt effects.
 
@@ -71,8 +71,8 @@ This is not a dashboard. It's a **sports cinematography engine** — with GSAP-p
 | **Styling** | Custom CSS (2,500+ lines, design system v5) |
 | **Server** | Flask + Gunicorn |
 | **Caching** | Flask-Caching (SimpleCache) |
-| **Deployment** | Render (Procfile + render.yaml included) |
-| **Data Source** | [Cricsheet](https://cricsheet.org/) (2008–2024) |
+| **Deployment** | Railway / Docker |
+| **Data Source** | [Cricsheet](https://cricsheet.org/) (2008–2026) |
 
 ---
 
@@ -126,13 +126,20 @@ Open **http://localhost:8050** in your browser.
 
 ## 🌍 Deployment
 
-### Render (Recommended)
+### Railway (Recommended)
 
 1. Push to GitHub
-2. Create a new **Web Service** on [Render](https://render.com)
-3. Connect your repo
-4. Render will auto-detect `render.yaml`
-5. Deploy 🚀
+2. Create a new project on [Railway](https://railway.app)
+3. Select **Deploy from GitHub repo**
+4. Railway will automatically detect the `Dockerfile` and build the app
+5. Add a custom domain or use the provided `.up.railway.app` URL 🚀
+
+### Hugging Face Spaces (Free Alternative)
+
+1. Go to [Hugging Face Spaces](https://huggingface.co/spaces) and create a new Space.
+2. Choose **Docker** as the SDK and select **Blank**.
+3. Push your repository to the Hugging Face git remote.
+4. The space will automatically build using the provided `Dockerfile` and host it for free.
 
 ### Manual
 
