@@ -154,17 +154,73 @@ def _save_cache(cache: dict):
         logger.warning(f"Failed to save image cache: {e}")
 
 
+def get_wikimedia_image(player_name: str) -> bytes | None:
+    """Primary Source: Wikimedia API (Highly reliable, no bot blocks)"""
+    import urllib.parse
+    import requests
+    
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"}
+    
+    # 1. Search for Wikipedia page
+    search_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(player_name + ' cricketer')}&utf8=&format=json"
+    try:
+        resp = requests.get(search_url, headers=headers, timeout=10)
+        data = resp.json()
+        search_results = data.get("query", {}).get("search", [])
+        if not search_results:
+            return None
+            
+        title = search_results[0]["title"]
+        
+        # 2. Get original image for that page
+        img_url = f"https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=original&titles={urllib.parse.quote(title)}"
+        resp2 = requests.get(img_url, headers=headers, timeout=10)
+        data2 = resp2.json()
+        
+        pages = data2.get("query", {}).get("pages", {})
+        for page_id, page_info in pages.items():
+            if "original" in page_info:
+                img_src = page_info["original"]["source"]
+                img_resp = requests.get(img_src, headers=headers, timeout=10)
+                if img_resp.status_code == 200:
+                    return img_resp.content
+    except Exception as e:
+        logger.debug(f"Wikimedia source failed for {player_name}: {e}")
+    return None
+
+def get_bing_fallback_image(player_name: str) -> bytes | None:
+    """Secondary Source: Bing Images HTML extraction"""
+    import urllib.parse
+    import requests
+    from bs4 import BeautifulSoup
+    import json
+    
+    query = urllib.parse.quote(player_name + " cricketer headshot profile")
+    url = f"https://www.bing.com/images/search?q={query}&form=HDRSC2"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"}
+    
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        for a in soup.find_all('a', class_='iusc'):
+            m = a.get('m')
+            if m:
+                m_data = json.loads(m)
+                img_url = m_data.get('murl')
+                if img_url and img_url.startswith('http'):
+                    img_resp = requests.get(img_url, headers=headers, timeout=10)
+                    if img_resp.status_code == 200:
+                        return img_resp.content
+    except Exception as e:
+        logger.debug(f"Bing source failed for {player_name}: {e}")
+    return None
+
 def download_player_image(player_name: str, force: bool = False) -> str | None:
     """
-    Download player image from ESPNcricinfo.
-    Returns the local path relative to assets/ or None if not found.
+    Robust Multi-Source Image Acquisition Pipeline.
+    1. Wikimedia API
+    2. Bing Images Fallback
     """
-    try:
-        import requests
-    except ImportError:
-        logger.warning("requests library not installed — skipping image download")
-        return None
-
     name = _normalize_name(player_name)
     if not name:
         return None
@@ -176,31 +232,24 @@ def download_player_image(player_name: str, force: bool = False) -> str | None:
     if filepath.exists() and not force:
         return f"/assets/images/players/{filename}"
 
-    # Look up ESPNcricinfo ID
-    player_id = PLAYER_ID_MAP.get(name)
-    if not player_id:
-        return None
-
-    # Try multiple ESPN image URL patterns
-    urls = [
-        f"https://wassets.hscicdn.com/static/images/player-headshot/{player_id}.png",
-        f"https://p.imgci.com/db/PICTURES/CMS/{player_id}.jpg",
-        f"https://img1.hscicdn.com/image/upload/f_auto,t_h_100/lsci/db/PICTURES/CMS/319500/{player_id}.jpg",
-    ]
-
-    for url in urls:
+    # Source 1: Wikimedia
+    logger.info(f"Attempting Wikimedia source for {name}...")
+    img_bytes = get_wikimedia_image(name)
+    
+    # Source 2: Bing Images (Fallback)
+    if not img_bytes:
+        logger.info(f"Wikimedia failed. Attempting Bing fallback for {name}...")
+        img_bytes = get_bing_fallback_image(name)
+        
+    if img_bytes and len(img_bytes) > 1000:
         try:
-            resp = requests.get(url, timeout=10, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            })
-            if resp.status_code == 200 and len(resp.content) > 1000:
-                filepath.write_bytes(resp.content)
-                logger.info(f"Downloaded image for {name}")
-                return f"/assets/images/players/{filename}"
+            filepath.write_bytes(img_bytes)
+            logger.info(f"Successfully saved image for {name}")
+            return f"/assets/images/players/{filename}"
         except Exception as e:
-            logger.debug(f"Failed URL {url}: {e}")
-            continue
-
+            logger.error(f"Failed to write image for {name}: {e}")
+            
+    logger.warning(f"All sources failed for {name}. Falling back to UI Avatar.")
     return None
 
 

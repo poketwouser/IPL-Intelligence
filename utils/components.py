@@ -113,8 +113,7 @@ def player_card(player_name, team,
     # Avatar
     if image_url:
         avatar = html.Div([
-            html.Img(src=image_url, className="player-card-avatar-img",
-                     **{"loading": "lazy"}),
+            html.Img(src=image_url, className="player-card-avatar-img"),
             html.Div(className="player-card-avatar-ring"),
         ], className="player-card-avatar")
     else:

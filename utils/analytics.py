@@ -339,25 +339,27 @@ def player_vs_player_stats(batter, bowler, deliveries, season_range=None):
 
 # ─── Impact Player Analytics ─────────────────────────────────────────────────
 
-def impact_player_scores(deliveries, matches, season=None):
+def impact_player_scores(deliveries, matches, impact_players=None, season=None):
     """
-    Calculate Impact Player scores — measures how much a player's
-    contribution exceeds the team average in matches they play.
-
-    Impact Score = (Player's runs + wickets*25) / team_avg per match.
-    Higher = more impact per game appearance.
+    Calculate TRUE Impact Player scores using actual substitution data.
+    Measures the net contribution (runs + wickets*25) of players brought in as Impact Substitutes.
     """
+    if impact_players is None or impact_players.empty:
+        return pd.DataFrame()
+        
     d = deliveries.copy()
     m = matches.copy()
+    ip = impact_players.copy()
 
     if season:
         m = m[m["Season"] == season]
         d = d[d["Match_Id"].isin(m["Id"])]
+        ip = ip[ip["Match_Id"].isin(m["Id"])]
 
-    if d.empty:
+    if d.empty or ip.empty:
         return pd.DataFrame()
 
-    # Per-match player contribution
+    # Calculate match-level contribution for all players
     bat_contrib = (d.groupby(["Match_Id", "Batter"])["Batsman_Runs"]
                    .sum().reset_index()
                    .rename(columns={"Batter": "Player", "Batsman_Runs": "bat_runs"}))
@@ -367,12 +369,17 @@ def impact_player_scores(deliveries, matches, season=None):
                     .reset_index(name="wickets")
                     .rename(columns={"Bowler": "Player"}))
 
-    # Merge
     contrib = bat_contrib.merge(bowl_contrib, on=["Match_Id", "Player"], how="outer").fillna(0)
     contrib["impact_raw"] = contrib["bat_runs"] + contrib["wickets"] * 25
 
-    # Aggregate by player
-    player_impact = contrib.groupby("Player").agg(
+    # Filter to ONLY players who were brought in as Impact Players in that match
+    ip_subbed_in = ip[["Match_Id", "Player_In"]].rename(columns={"Player_In": "Player"})
+    
+    # Inner merge to get contribution ONLY in the matches they were an Impact Player
+    impact_matches = pd.merge(ip_subbed_in, contrib, on=["Match_Id", "Player"], how="inner")
+
+    # Aggregate by player across their Impact Player appearances
+    player_impact = impact_matches.groupby("Player").agg(
         matches=("Match_Id", "nunique"),
         total_runs=("bat_runs", "sum"),
         total_wickets=("wickets", "sum"),
@@ -381,7 +388,8 @@ def impact_player_scores(deliveries, matches, season=None):
         max_impact=("impact_raw", "max"),
     ).reset_index()
 
-    player_impact = player_impact[player_impact["matches"] >= 10]
+    # Filter for meaningful sample size (at least 2 impact appearances)
+    player_impact = player_impact[player_impact["matches"] >= 2]
     player_impact["impact_score"] = round(player_impact["avg_impact"], 1)
     player_impact = player_impact.sort_values("impact_score", ascending=False)
 

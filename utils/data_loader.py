@@ -92,10 +92,17 @@ def load_data():
         if col in deliveries.columns:
             deliveries[col] = deliveries[col].apply(fix_initials)
 
+    impact_path = os.path.join(processed, "impact_players.parquet")
+    if os.path.exists(impact_path):
+        impact_players = pd.read_parquet(impact_path)
+    else:
+        impact_players = pd.DataFrame()
+
     return {
         "matches": matches,
         "deliveries": deliveries,
         "venues": venues,
+        "impact_players": impact_players,
     }
 
 

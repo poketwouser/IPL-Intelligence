@@ -22,10 +22,10 @@ dash.register_page(__name__, path="/advanced", name="Analytics Lab", order=6)
 DATA = load_data()
 M    = DATA["matches"]
 D    = DATA["deliveries"]
-
+I    = DATA.get("impact_players", pd.DataFrame())
 
 def build():
-    m, d = M.copy(), D.copy()
+    m, d, i = M.copy(), D.copy(), I.copy()
 
     # ── Win probability by over (chasing) ─────────────────────────────────────
     match_winners = m.set_index("Id")["Winner"].to_dict()
@@ -231,7 +231,7 @@ def build():
     # ══════════════════════════════════════════════════════════════════════════
     # IMPACT PLAYER ANALYTICS — NEW SECTION
     # ══════════════════════════════════════════════════════════════════════════
-    impact_df = impact_player_scores(d, m)
+    impact_df = impact_player_scores(d, m, i)
     team_strat = team_impact_strategy(d, m)
 
     # Impact Player leaderboard
