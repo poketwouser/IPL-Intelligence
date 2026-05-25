@@ -6,9 +6,14 @@
   <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python" />
   <img src="https://img.shields.io/badge/GSAP-3.12-88CE02?style=flat-square" />
   <img src="https://img.shields.io/badge/Deploy-Vercel-000000?style=flat-square&logo=vercel" />
+  <a href="https://ipl-intel.vercel.app/" target="_blank"><img src="https://img.shields.io/badge/Live_Demo-🔴_Online-FF0000?style=flat-square" /></a>
 </p>
 
 <h1 align="center">🏏 IPL Intelligence Platform</h1>
+
+<p align="center">
+  <strong><a href="https://ipl-intel.vercel.app/">🌐 VIEW LIVE DEMO: ipl-intel.vercel.app</a></strong>
+</p>
 
 <p align="center">
   <strong>Cinema-grade cricket analytics. Apple Sports × F1 aesthetics.</strong>
